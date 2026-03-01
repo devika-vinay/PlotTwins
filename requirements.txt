@@ -1,0 +1,8 @@
+pandas
+numpy
+pyarrow
+fastparquet
+matplotlib
+seaborn
+huggingface_hub
+fsspec
