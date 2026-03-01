@@ -24,6 +24,7 @@ pip install -r requirements.txt
 echo "Running pipeline..."
 python -m pipeline.step_01_load
 python -m pipeline.step_02_transform
+python -m pipeline.step_03_userprofile
 
 # Optional EDA step - keep commented unless running some tests on any data
 # python -m pipeline.step_00_edacheck
