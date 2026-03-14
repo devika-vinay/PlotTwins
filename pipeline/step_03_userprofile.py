@@ -199,7 +199,6 @@ def main():
     # cache
     user_profiles.to_parquet(USER_PROFILES_OUT, index=False)
     print("[03_user_profiles] Saved:", USER_PROFILES_OUT)
-    print(user_profiles.head())
 
 if __name__ == "__main__":
     main()
