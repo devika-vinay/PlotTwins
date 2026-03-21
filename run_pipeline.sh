@@ -25,6 +25,8 @@ echo "Running pipeline..."
 python -m pipeline.step_01_load
 python -m pipeline.step_02_transform
 python -m pipeline.step_03_userprofile
+python -m pipeline.step_04_featurematrix
+python -m pipeline.step_05_clusterusers
 
 # Optional EDA step - keep commented unless running some tests on any data
 # python -m pipeline.step_00_edacheck

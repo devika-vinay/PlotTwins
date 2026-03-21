@@ -98,6 +98,7 @@ def main():
         mean_centered=("rating_centered", "mean"),
         std_centered=("rating_centered", "std"),
         like_rate=("like_flag", "mean"),
+        dislike_rate=("dislike_flag", "mean"),
         avg_release_year=("year_released", "mean"),
         avg_vote_count=("vote_count", "mean"),
         avg_vote_average=("vote_average", "mean"),

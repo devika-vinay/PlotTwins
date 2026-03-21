@@ -1,7 +1,6 @@
 # Folders/files that should be ignored when pushing to GitHub. 
 # This includes any large files, sensitive information, or files that are not relevant to the project.
 
-data/cache/
-data/raw/
+data/
 venv/
 __pycache__/

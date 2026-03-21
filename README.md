@@ -28,21 +28,7 @@ cd plot-twins
 
 ---
 
-### 2. Add data (NOT included in repo)
-
-Place files in:
-
-```
-data/raw/
-```
-
-Required:
-
-* `movie_data.csv`
-
----
-
-### 3. Run pipeline (in a terminal)
+### 2. Run pipeline (in a terminal)
 
 ```bash
 chmod +x run_pipeline.sh
@@ -94,7 +80,6 @@ git push origin feature/your-branch-name
 * Avoid hardcoding paths (use `config.py`)
 * Do NOT commit:
 
-  * `data/raw/`
   * `data/cache/`
   * `venv/`
   * `__pycache__/`
