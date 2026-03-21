@@ -27,6 +27,7 @@ python -m pipeline.step_02_transform
 python -m pipeline.step_03_userprofile
 python -m pipeline.step_04_featurematrix
 python -m pipeline.step_05_clusterusers
+python -m pipeline.step_06_matchusers
 
 # Optional EDA step - keep commented unless running some tests on any data
 # python -m pipeline.step_00_edacheck
