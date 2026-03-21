@@ -7,3 +7,4 @@ seaborn
 huggingface_hub
 fsspec
 scikit-learn
+streamlit
