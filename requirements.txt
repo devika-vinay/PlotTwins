@@ -7,6 +7,7 @@ seaborn
 huggingface_hub
 fsspec
 scikit-learn
-streamlit
+streamlit==1.19.0
+altair==4.2.2
 openai
 python-dotenv
