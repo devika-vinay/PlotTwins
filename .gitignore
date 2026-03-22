@@ -2,6 +2,12 @@
 # This includes any large files, sensitive information, or files that are not relevant to the project.
 
 data/
+
+# Only include the cache files that are necessary for the pipeline to run, and ignore the rest of the data files.
+!data/cache/user_dashboard.parquet
+!data/cache/user_matches.parquet
+!data/cache/user_narratives.parquet
+
 venv/
 __pycache__/
 .env
