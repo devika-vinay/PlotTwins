@@ -8,3 +8,5 @@ huggingface_hub
 fsspec
 scikit-learn
 streamlit
+openai
+python-dotenv
