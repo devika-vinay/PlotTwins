@@ -1,9 +1,13 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 from pipeline.step_00_config import CACHE_DIR
 from utilities.util import parse_list
 
 CLEAN_IN = CACHE_DIR / "cleaned.parquet"
 TRANSFORMED_OUT = CACHE_DIR / "transformed.parquet"
+
 
 def main():
     if TRANSFORMED_OUT.exists():
@@ -16,12 +20,14 @@ def main():
     transformed.to_parquet(TRANSFORMED_OUT, index=False)
     print("[02_transform] Saved:", TRANSFORMED_OUT)
 
+
 def parsing_lists(merged):
     # Convert stringified lists to actual lists
     merged["genres_list"] = merged["genres"].apply(parse_list)
     merged["languages_list"] = merged["spoken_languages"].apply(parse_list)
 
     return merged
+
 
 def type_cast(merged):
     # Convert numeric columns to appropriate types, coercing errors to NaN
@@ -40,16 +46,22 @@ def normalize(merged):
 
     return merged
 
-    
+
+# Use a tolerance band — neutral zone around the mean
+LIKE_THRESHOLD = 0.25  # at least 0.25 stars above personal mean
+DISLIKE_THRESHOLD = -0.25
+
+
 def user_flags(df):
     # Create binary flags for like/dislike based on centered ratings
-    df["like_flag"] = (df["rating_centered"] > 0).astype(int)
-    df["dislike_flag"] = (df["rating_centered"] <= 0).astype(int)
+    df["like_flag"] = (df["rating_centered"] > LIKE_THRESHOLD).astype(int)
+    df["dislike_flag"] = (df["rating_centered"] < DISLIKE_THRESHOLD).astype(int)
 
     # Drop original list columns and movie_id_norm as they are no longer needed
-    df.drop(columns=['genres','spoken_languages','movie_id_norm'], inplace=True)
+    df.drop(columns=['genres', 'spoken_languages', 'movie_id_norm'], inplace=True)
 
     return df
+
 
 if __name__ == "__main__":
     main()
