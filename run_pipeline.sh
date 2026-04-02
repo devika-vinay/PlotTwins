@@ -31,7 +31,7 @@ python -m pipeline.step_06_matchusers
 python -m pipeline.step_07_cluster_kb
 python -m pipeline.step_08_movies_kb
 python -m pipeline.step_09_dashboardpersonas
-python -m pipeline.step_10_generatenarratives
+# Step 10 is only for extreme cases if we want to generate narratives for every single user beforehand
 streamlit run app.py
 
 # Optional EDA step - keep commented unless running some tests on any data

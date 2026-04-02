@@ -271,6 +271,17 @@ pd.DataFrame, pd.DataFrame]:
 # MAIN
 # ─────────────────────────────────────────────────────────────────────
 def main() -> tuple[pd.DataFrame, dict]:
+
+    if (
+        CLUSTER_INTERPRETATION_OUT.exists() and
+        CLUSTER_PROFILE_SUMMARY_OUT.exists() and
+        CLUSTER_GENRE_BREAKDOWN_OUT.exists() and
+        CLUSTER_DECADE_BREAKDOWN_OUT.exists() and
+        CLUSTER_POP_BREAKDOWN_OUT.exists()
+    ):
+        print("[07_cluster_kb] Cache exists. Skipping cluster KB build.")
+        return
+
     features = pd.read_parquet(FEATURE_MATRIX_IN)
     cluster_assign = pd.read_parquet(CLUSTER_ASSIGNMENTS_IN)
     reviews = pd.read_parquet(TRANSFORMED_IN)
@@ -301,4 +312,4 @@ def main() -> tuple[pd.DataFrame, dict]:
 
 
 if __name__ == "__main__":
-    interpretation, profiles = main()
+    main()

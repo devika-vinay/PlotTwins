@@ -10,6 +10,8 @@ from openai import OpenAI
 
 CACHE_DIR = Path("data/cache")
 USER_NARRATIVES_PATH = CACHE_DIR / "user_narratives.parquet"
+MODEL_NAME = os.getenv("PLOTTWINS_NARRATIVE_MODEL", "gpt-5")
+
 
 load_dotenv()
 
@@ -188,7 +190,7 @@ Write the JSON output now.
         "taste_story": str(parsed.get("taste_story", "")).strip(),
         "people_story": str(parsed.get("people_story", "")).strip(),
         "raw_llm_response": raw_text,
-        "model_used": "gpt-5",
+        "model_used": MODEL_NAME,
     }
 
 

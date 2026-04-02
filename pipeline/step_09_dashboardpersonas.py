@@ -23,13 +23,17 @@ def build_persona_library_from_kb() -> dict:
     personas = {}
     for _, row in interp.iterrows():
         cid = int(row["cluster"])
-        top_genres = [g.strip() for g in row["distinctive_genres"].split(" | ") if g.strip()]
-        top_decades = [d.strip() for d in row["distinctive_decades"].split(" | ") if d.strip()]
+        top_genres = [g.strip() for g in str(row["distinctive_genres"]).split(" | ") if g.strip()]
+        top_decades = [d.strip() for d in str(row["distinctive_decades"]).split(" | ") if d.strip()]
         dominant_pop = row["dominant_pop_tier"]
 
+        cluster_movies = movie_kb[movie_kb["cluster"] == cid].copy()
         top_movies = (
-            movie_kb[movie_kb["cluster"] == cid]
-            .nlargest(3, "representative_score")["title_norm"]
+            cluster_movies
+            .sort_values(["representative_score", "n_ratings"], ascending=[False, False])
+            ["display_title"]
+            .dropna()
+            .head(3)
             .tolist()
         )
 
@@ -42,10 +46,12 @@ def build_persona_library_from_kb() -> dict:
         interpretation = (
             f"You gravitate toward {', '.join(top_genres[:3])} films, "
             f"mostly from the {top_decades[0]}s, with a "
-            f"{dominant_pop.replace('pop_', '')} popularity preference."
-            if top_decades else
+            f"{str(dominant_pop).replace('pop_', '')} popularity preference."
+            if top_decades and top_genres else
             f"You gravitate toward {', '.join(top_genres[:3])} films."
-        ) if top_genres else f"Cluster {cid} profile."
+            if top_genres else
+            f"Cluster {cid} profile."
+        )
 
         personas[cid] = {
             "persona_key": f"cluster_{cid}",
@@ -56,9 +62,12 @@ def build_persona_library_from_kb() -> dict:
             "expected_pop": dominant_pop,
             "interpretation": interpretation,
             "example_movies": top_movies,
+            "top_genres": top_genres,
+            "top_eras": top_decades,
         }
 
     return personas
+
 
 def safe_top_from_prefix(row: pd.Series, prefix: str, top_n: int = 3):
     cols = [c for c in row.index if c.startswith(prefix)]
@@ -84,17 +93,17 @@ def describe_behavior(row: pd.Series):
     dislike_rate = row.get("dislike_rate", np.nan)
 
     if pd.notna(like_rate) and pd.notna(dislike_rate):
-        if like_rate >= 0.65 and dislike_rate <= 0.20:
+        if like_rate >= 0.50 and dislike_rate <= 0.20:
             return "strongly positive"
-        if like_rate >= 0.50 and dislike_rate <= 0.30:
+        if like_rate >= 0.35 and dislike_rate <= 0.30:
             return "slightly positive"
-        if dislike_rate >= 0.45:
+        if dislike_rate >= 0.40:
             return "more critical"
         return "neutral"
     if pd.notna(like_rate):
-        if like_rate >= 0.65:
+        if like_rate >= 0.55:
             return "strongly positive"
-        if like_rate >= 0.50:
+        if like_rate >= 0.35:
             return "slightly positive"
         if like_rate <= 0.30:
             return "more critical"
@@ -124,6 +133,12 @@ def main():
     if CLUSTER_PERSONAS_OUT.exists() and USER_DASHBOARD_OUT.exists():
         print("[09_dashboard_personas] Cache exists. Skipping persona mapping.")
         return
+    
+    if not CLUSTER_INTERPRETATION_IN.exists() or not CLUSTER_MOVIE_KB_IN.exists():
+        raise FileNotFoundError(
+            "[09_dashboard_personas] KB artifacts missing. "
+            "Run step_07_cluster_kb and step_08_movies_kb first."
+        )
 
     features = pd.read_parquet(FEATURE_MATRIX_IN)
     cluster_assignments = pd.read_parquet(CLUSTER_ASSIGNMENTS_IN)
@@ -138,12 +153,6 @@ def main():
     numeric_feature_cols = [c for c in numeric_cols if c not in ["cluster"]]
 
     cluster_means = df.groupby("cluster")[numeric_feature_cols].mean()
-
-    if not CLUSTER_INTERPRETATION_IN.exists() or not CLUSTER_MOVIE_KB_IN.exists():
-        raise FileNotFoundError(
-            "[09_dashboard_personas] KB artifacts missing. "
-            "Run step_07_cluster_kb and step_08_movies_kb first."
-        )
 
     # Build personas directly from KB — no hardcoding
     personas = build_persona_library_from_kb()
@@ -161,7 +170,8 @@ def main():
             "short_label": persona["short_label"],
             "interpretation": persona["interpretation"],
             "example_movies": " | ".join(persona["example_movies"]),
-            "top_eras": " | ".join(summary["top_eras"]),
+            "top_genres": " | ".join(persona["top_genres"]),
+            "top_eras": " | ".join(persona["top_eras"]),
             "popularity_pref": summary["popularity_pref"],
             "behavior_profile": summary["behavior_profile"],
         })
