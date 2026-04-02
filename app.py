@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 from pathlib import Path
-import plotly.express as px
 
 from utilities.narrative_utils import get_or_create_narrative
 
@@ -355,93 +354,6 @@ def unique_match_badges(row):
         badges.append("Very nearby")
     return badges
 
-def build_cluster_overview(dashboard_df):
-    cluster_counts = (
-        dashboard_df.groupby("cluster")
-        .agg(
-            n_users=("user", "count"),
-            persona_name=("persona_name", "first"),
-            short_label=("short_label", "first"),
-        )
-        .reset_index()
-        .sort_values("cluster")
-    )
-
-    # Simple layout positions for 6 clusters
-    # You can tweak these manually later for better aesthetics
-    positions = {
-        0: (-1.2, 0.8),
-        1: (0.0, 1.15),
-        2: (1.2, 0.7),
-        3: (-0.9, -0.5),
-        4: (0.5, -0.95),
-        5: (1.45, -0.2),
-    }
-
-    cluster_counts["x"] = cluster_counts["cluster"].map(lambda c: positions.get(int(c), (0, 0))[0])
-    cluster_counts["y"] = cluster_counts["cluster"].map(lambda c: positions.get(int(c), (0, 0))[1])
-
-    cluster_counts["cluster_name"] = cluster_counts.apply(
-        lambda r: f"Cluster {int(r['cluster'])}: {r['short_label']}",
-        axis=1
-    )
-
-    return cluster_counts
-
-def render_cluster_bubble_chart(cluster_overview, user_cluster):
-    chart_df = cluster_overview.copy()
-    chart_df["is_user_cluster"] = chart_df["cluster"] == user_cluster
-    chart_df["highlight"] = chart_df["is_user_cluster"].map(
-        {True: "Your cluster", False: "Other cluster"}
-    )
-
-    fig = px.scatter(
-        chart_df,
-        x="x",
-        y="y",
-        size="n_users",
-        color="highlight",
-        hover_name="cluster_name",
-        hover_data={
-            "cluster": True,
-            "n_users": True,
-            "persona_name": True,
-            "short_label": False,
-            "x": False,
-            "y": False,
-            "highlight": False,
-        },
-        text=chart_df["short_label"],
-        size_max=90,
-    )
-
-    fig.update_traces(
-        textposition="middle center",
-        marker=dict(
-            line=dict(width=2, color="rgba(229,220,197,0.35)")
-        )
-    )
-
-    fig.update_layout(
-        height=480,
-        margin=dict(l=10, r=10, t=20, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        xaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            visible=False
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            visible=False
-        ),
-    )
-
-    return fig
-
 # ----------------------------
 # Top intro
 # ----------------------------
@@ -464,9 +376,6 @@ if username:
         st.stop()
 
     user_row = user_row.iloc[0]
-
-    user_cluster = int(user_row["cluster"])
-    cluster_overview = build_cluster_overview(dashboard)
 
     persona_name = str(user_row.get("persona_name", "Movie Explorer"))
     short_label = str(user_row.get("short_label", persona_name))
@@ -511,46 +420,6 @@ if username:
 
     if newly_generated:
         st.caption("Generated a fresh narrative and saved it for future visits.")
-
-    st.markdown('<div class="section-head">Explore the movie world</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="small-note" style="margin-bottom:0.8rem;">Each bubble represents a taste community. Bubble size shows how many users belong to that cluster, and your cluster is highlighted.</div>',
-        unsafe_allow_html=True
-    )
-
-    cluster_fig = render_cluster_bubble_chart(cluster_overview, user_cluster)
-    st.plotly_chart(cluster_fig, use_container_width=True)
-
-    cluster_options = {
-        f"Cluster {int(row['cluster'])} — {row['short_label']}": int(row["cluster"])
-        for _, row in cluster_overview.iterrows()
-    }
-
-    default_index = list(cluster_options.values()).index(user_cluster)
-
-    selected_cluster_label = st.selectbox(
-        "Choose a cluster to explore",
-        options=list(cluster_options.keys()),
-        index=default_index
-    )
-
-    selected_cluster = cluster_options[selected_cluster_label]
-    selected_cluster_row = cluster_overview[cluster_overview["cluster"] == selected_cluster].iloc[0]
-
-    cluster_users = dashboard[dashboard["cluster"] == selected_cluster].copy()
-
-    st.markdown('<div class="section-head">Cluster details</div>', unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div class="panel-dark">
-        <div class="story-label">Selected cluster</div>
-        <div class="story-title" style="font-size:1.8rem;">{selected_cluster_row['short_label']}</div>
-        <div class="story-copy">{selected_cluster_row['persona_name']}</div>
-        <div class="story-copy" style="margin-top:0.8rem;">
-            Total users in cluster: {int(selected_cluster_row['n_users'])}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
     # Story row
     c1, c2, c3 = st.columns(3)
