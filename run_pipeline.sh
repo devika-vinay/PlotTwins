@@ -31,6 +31,7 @@ python -m pipeline.step_06_matchusers
 python -m pipeline.step_07_cluster_kb
 python -m pipeline.step_08_movies_kb
 python -m pipeline.step_09_dashboardpersonas
+python -m pipeline.step_13_eventsuggestions
 
 # ----------------------------
 # 4. Run optional pipeline steps
