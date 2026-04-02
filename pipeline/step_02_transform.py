@@ -40,14 +40,19 @@ def normalize(merged):
 
     return merged
 
-    
+
+# Use a tolerance band — neutral zone around the mean
+LIKE_THRESHOLD = 0.25  # at least 0.25 stars above personal mean
+DISLIKE_THRESHOLD = -0.25
+
+
 def user_flags(df):
     # Create binary flags for like/dislike based on centered ratings
-    df["like_flag"] = (df["rating_centered"] > 0).astype(int)
-    df["dislike_flag"] = (df["rating_centered"] <= 0).astype(int)
+    df["like_flag"] = (df["rating_centered"] > LIKE_THRESHOLD).astype(int)
+    df["dislike_flag"] = (df["rating_centered"] < DISLIKE_THRESHOLD).astype(int)
 
     # Drop original list columns and movie_id_norm as they are no longer needed
-    df.drop(columns=['genres','spoken_languages','movie_id_norm'], inplace=True)
+    df.drop(columns=['genres', 'spoken_languages', 'movie_id_norm'], inplace=True)
 
     return df
 
