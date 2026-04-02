@@ -166,7 +166,7 @@ Write the JSON output now.
 """
 
     response = client.responses.create(
-        model="gpt-5",
+        model=MODEL_NAME,
         input=[
             {"role": "developer", "content": developer_prompt},
             {"role": "user", "content": user_prompt},
