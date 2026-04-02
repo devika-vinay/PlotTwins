@@ -194,14 +194,14 @@ Write the JSON output now.
 
 def main():
     if not USER_DASHBOARD_IN.exists():
-        raise FileNotFoundError(f"[08_generate_narratives] Missing input: {USER_DASHBOARD_IN}")
+        raise FileNotFoundError(f"[10_generate_narratives] Missing input: {USER_DASHBOARD_IN}")
 
     if not USER_MATCHES_IN.exists():
-        raise FileNotFoundError(f"[08_generate_narratives] Missing input: {USER_MATCHES_IN}")
+        raise FileNotFoundError(f"[10_generate_narratives] Missing input: {USER_MATCHES_IN}")
 
     if "OPENAI_API_KEY" not in os.environ:
         raise EnvironmentError(
-            "[08_generate_narratives] OPENAI_API_KEY is not set. "
+            "[10_generate_narratives] OPENAI_API_KEY is not set. "
             "Set it in your environment before running this step."
         )
 
@@ -211,7 +211,7 @@ def main():
     existing = pd.DataFrame()
     if USER_NARRATIVES_OUT.exists():
         existing = pd.read_parquet(USER_NARRATIVES_OUT)
-        print("[08_generate_narratives] Existing cache found. Will only generate missing users.")
+        print("[10_generate_narratives] Existing cache found. Will only generate missing users.")
 
     done_users = set(existing["user"].astype(str).tolist()) if not existing.empty else set()
 
@@ -238,7 +238,7 @@ def main():
                 "raw_llm_response": narrative["raw_llm_response"],
                 "model_used": MODEL_NAME,
             })
-            print(f"[08_generate_narratives] Generated narrative for user {user_id}")
+            print(f"[10_generate_narratives] Generated narrative for user {user_id}")
         except Exception as e:
             rows.append({
                 "user": user_id,
@@ -248,7 +248,7 @@ def main():
                 "raw_llm_response": f"ERROR: {e}",
                 "model_used": MODEL_NAME,
             })
-            print(f"[08_generate_narratives] Failed for user {user_id}: {e}")
+            print(f"[10_generate_narratives] Failed for user {user_id}: {e}")
 
         time.sleep(SLEEP_BETWEEN_CALLS)
 
@@ -263,7 +263,7 @@ def main():
         final_df = final_df.drop_duplicates(subset=["user"], keep="last")
 
     final_df.to_parquet(USER_NARRATIVES_OUT, index=False)
-    print("[08_generate_narratives] Saved:", USER_NARRATIVES_OUT)
+    print("[10_generate_narratives] Saved:", USER_NARRATIVES_OUT)
 
 
 if __name__ == "__main__":
