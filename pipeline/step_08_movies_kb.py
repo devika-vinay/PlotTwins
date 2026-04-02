@@ -7,7 +7,7 @@ Answers: "What movies define each cluster?"
 
 Purpose: WHAT each cluster watches — scored, filtered movie inventory per cluster
 
-Reads cluster_interpretation.parquet (produced by step_08) and
+Reads cluster_interpretation.parquet (produced by step_07) and
 transformed.parquet to build a comprehensive, scored movie list
 per cluster.
 
@@ -40,10 +40,11 @@ Output:
 
 import pandas as pd
 import numpy as np
+import re
 from pipeline.step_00_config import CACHE_DIR
 
 # ── Input artifacts ───────────────────────────────────────────────────
-# cluster_interpretation: z-score diff signals per cluster (from step_08)
+# cluster_interpretation: z-score diff signals per cluster (from step_07)
 #   Used to extract the signal dict (top genres, eras, pop tier)
 #   that drives representative_score calculation.
 # cluster_assignments: user → cluster integer (from step_05)
@@ -73,12 +74,30 @@ def agg_genres(series) -> list:
             genres.add(val)
     return sorted(genres)
 
+def title_norm_to_display(title_norm: str) -> str:
+    if pd.isna(title_norm):
+        return ""
+
+    s = str(title_norm).strip().lower()
+
+    # replace hyphens/underscores with spaces
+    s = re.sub(r"[-_]+", " ", s)
+
+    # remove trailing year like 2017 or 2011 if present at the end
+    s = re.sub(r"\b(19|20)\d{2}\b$", "", s).strip()
+
+    # collapse extra spaces
+    s = re.sub(r"\s+", " ", s)
+
+    # title case
+    return s.title()
+
 
 def score_movie(row: pd.Series, signal: dict) -> float:
     """
     Scores a movie's representativeness for its assigned cluster.
 
-    The signal dict comes from cluster_interpretation (step_08 View A),
+    The signal dict comes from cluster_interpretation (step_07),
     which reflects what the KMeans model actually learned — not hardcoded rules.
     This ensures movie scoring is backed by the model's learned separation.
 
@@ -166,6 +185,8 @@ def build_movie_kb(reviews: pd.DataFrame,
         .reset_index()
     )
 
+    kb["display_title"] = kb["title_norm"].apply(title_norm_to_display)
+
     # ── Filter: minimum 1% of cluster users must have rated the movie ──
     # Prevents long-tail movies (rated by 1-2 users) from polluting the KB.
     # Keeps niche titles that still matter to a meaningful cluster subset.
@@ -188,7 +209,7 @@ def build_movie_kb(reviews: pd.DataFrame,
     kb = kb.merge(total_per_movie, on="title_norm")
     kb["cluster_share"] = (kb["n_ratings"] / kb["total_ratings"]).round(3)
 
-    # ── Build signal dict from interpretation (step_08 View A) ────────
+    # ── Build signal dict from interpretation (step_07 View A) ────────
     # Extracts the three signals that drive score_movie():
     # top_genres, top_decades, dominant_pop — all derived from the
     # KMeans feature space, not hardcoded.
@@ -226,7 +247,12 @@ def build_movie_kb(reviews: pd.DataFrame,
 # MAIN
 # ─────────────────────────────────────────────────────────────────────
 def main() -> pd.DataFrame:
-    # Reads interpretation from step_08 — avoids recomputing feature matrix
+
+    if CLUSTER_MOVIE_KB_OUT.exists():
+        print("[08_movies_kb] Cache exists. Skipping movie KB build.")
+        return
+
+    # Reads interpretation from step_07 — avoids recomputing feature matrix
     interpretation = pd.read_parquet(CLUSTER_INTERPRETATION_IN)
     cluster_assign = pd.read_parquet(CLUSTER_ASSIGNMENTS_IN)
     reviews = pd.read_parquet(TRANSFORMED_IN)
