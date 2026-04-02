@@ -1,3 +1,4 @@
+import joblib
 import numpy as np
 import pandas as pd
 
@@ -126,6 +127,7 @@ def main():
 
     kmeans = KMeans(n_clusters=final_k, random_state=RANDOM_STATE, n_init=N_INIT)
     clusters = kmeans.fit_predict(X)
+    joblib.dump(kmeans, CACHE_DIR / "kmeans_model.pkl")
 
     cluster_assignments = base_info.copy()
     cluster_assignments["cluster"] = clusters

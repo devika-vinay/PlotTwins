@@ -31,11 +31,23 @@ python -m pipeline.step_06_matchusers
 python -m pipeline.step_07_cluster_kb
 python -m pipeline.step_08_movies_kb
 python -m pipeline.step_09_dashboardpersonas
-# Step 10 is only for extreme cases if we want to generate narratives for every single user beforehand
-streamlit run app.py
 
+# ----------------------------
+# 4. Run optional pipeline steps
+# ----------------------------
 # Optional EDA step - keep commented unless running some tests on any data
 # python -m pipeline.step_00_edacheck
 
+# Generate narratives for every single user beforehand
+# python -m pipeline.step_10_generatenarratives
+
+# Uncomment if cold-start prediction is needed
+# python -m pipeline.step_11_coldstart
+# python -m pipeline.step_12_predict_new_user
+
+# ----------------------------
+# 5. Start Streamlit app
+# ----------------------------
+streamlit run app.py
 
 echo "Pipeline complete!"

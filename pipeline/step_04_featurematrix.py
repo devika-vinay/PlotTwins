@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import joblib
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import TruncatedSVD, PCA
@@ -157,6 +158,7 @@ def main():
     # align all feature blocks to the same user index
     common_users = sorted(set.intersection(*[set(df.index) for df in feature_blocks.values()]))
 
+    scalers = {}
     scaled_blocks = []
 
     for name, df in feature_blocks.items():
@@ -170,6 +172,13 @@ def main():
             columns=df.columns
         )
         scaled_blocks.append(scaled)
+        scalers[name] = scaler
+
+        # Save column order for this block — needed to align new user
+        # features to the exact same column order during prediction
+        pd.Series(df.columns.tolist()).to_frame("feature").to_parquet(
+            CACHE_DIR / f"feature_columns_{name}.parquet", index=False
+        )
 
     X_scaled = pd.concat(scaled_blocks, axis=1).fillna(0)
 
@@ -222,6 +231,17 @@ def main():
     # ----------------------------
     feature_matrix_out.to_parquet(FEATURE_MATRIX_OUT, index=False)
     feature_matrix_pca_out.to_parquet(FEATURE_MATRIX_PCA_OUT, index=False)
+
+    # Fitted transformers — required for predicting new users in step_10
+    joblib.dump(scalers, CACHE_DIR / "scalers.pkl")
+    joblib.dump(svd, CACHE_DIR / "svd.pkl")
+    joblib.dump(selector, CACHE_DIR / "variance_selector.pkl")
+    joblib.dump(pca, CACHE_DIR / "pca.pkl")
+
+    print("[04_feature_matrix] Saved: scalers.pkl, svd.pkl, variance_selector.pkl, pca.pkl")
+    print("[04_feature_matrix] Saved: feature_columns_{block}.parquet for each block")
+    print(f"[04_feature_matrix] Feature matrix shape: {feature_matrix_out.shape}")
+    print(f"[04_feature_matrix] PCA matrix shape:     {feature_matrix_pca_out.shape}")
 
     print("[04_feature_matrix] Saved:", FEATURE_MATRIX_OUT)
     print("[04_feature_matrix] Saved:", FEATURE_MATRIX_PCA_OUT)
