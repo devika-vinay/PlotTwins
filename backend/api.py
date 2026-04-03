@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 CACHE_DIR = Path("data/cache")
 USER_DASHBOARD_PATH = CACHE_DIR / "user_dashboard.parquet"
 USER_MATCHES_PATH = CACHE_DIR / "user_matches.parquet"
+USER_PROFILES_PATH = CACHE_DIR / "user_profiles.parquet"
 EVENT_SUGGESTIONS_PATH = Path("data/cache/event_suggestions.parquet")
 
 
@@ -24,7 +25,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://plot-twins.vercel.app",
-        "https://plot-twins.vercel.app/business"
+        "https://plot-twins.vercel.app/business",
         "http://localhost:5173",
     ],
     allow_credentials=True,
@@ -111,6 +112,34 @@ def compute_era_bounds(dashboard: pd.DataFrame):
         "min": int(min(all_eras)),
         "max": int(max(all_eras)),
     }
+
+def build_persona_radar(user_row):
+    def safe_float(value, default=0.0):
+        try:
+            if pd.isna(value):
+                return default
+            return float(value)
+        except Exception:
+            return default
+
+    genre_focus = safe_float(user_row.get("top_genre_share", 0.0))
+    genre_entropy = safe_float(user_row.get("genre_entropy", 0.0))
+    classic = safe_float(user_row.get("classic_share", 0.0))
+    modern = safe_float(user_row.get("modern_share", 0.0))
+    english = safe_float(user_row.get("english_share", 1.0), 1.0)
+
+    # Normalize entropy to a 0–1 UI score
+    # 3.5 is a practical ceiling for display
+    variety = min(max(genre_entropy / 3.5, 0.0), 1.0)
+    international = min(max(1.0 - english, 0.0), 1.0)
+
+    return [
+        {"axis": "Focused Genres", "value": round(genre_focus, 3)},
+        {"axis": "Explorer", "value": round(variety, 3)},
+        {"axis": "Classic Films", "value": round(classic, 3)},
+        {"axis": "Modern Films", "value": round(modern, 3)},
+        {"axis": "Global Cinema", "value": round(international, 3)},
+    ]
 
 
 def fallback_flavor_text(user_row):
@@ -430,6 +459,7 @@ def get_user(username: str):
     dashboard = pd.read_parquet(USER_DASHBOARD_PATH)
     matches = pd.read_parquet(USER_MATCHES_PATH)
 
+
     user_row_df = dashboard[
         dashboard["user"].astype(str).str.lower() == str(username).lower()
     ].copy()
@@ -438,6 +468,14 @@ def get_user(username: str):
         raise HTTPException(status_code=404, detail="No user found with that username.")
 
     user_row = user_row_df.iloc[0]
+
+    profiles = pd.read_parquet(USER_PROFILES_PATH)
+
+    profile_row_df = profiles[
+        profiles["user"].astype(str).str.lower() == str(username).lower()
+    ].copy()
+
+    profile_row = profile_row_df.iloc[0] if not profile_row_df.empty else user_row
 
     user_matches = matches[
         matches["user"].astype(str).str.lower() == str(username).lower()
@@ -464,6 +502,7 @@ def get_user(username: str):
         newly_generated = False
         narrative_fallback_used = True
 
+
     response = {
         "user": serialize_user_row(user_row),
         "hero_title": hero_title,
@@ -474,6 +513,7 @@ def get_user(username: str):
         "matches": serialize_matches(user_matches),
         "clusters": build_cluster_cards(dashboard),
         "era_bounds": compute_era_bounds(dashboard),
+        "persona_radar": build_persona_radar(profile_row),
         "technical_details": {
             "cluster": None if pd.isna(user_row.get("cluster")) else str(user_row.get("cluster")),
             "region": None if pd.isna(user_row.get("region")) else str(user_row.get("region")),

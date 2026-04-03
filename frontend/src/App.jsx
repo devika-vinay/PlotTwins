@@ -164,16 +164,14 @@ function buildRadarData(genres = []) {
   }));
 }
 
-function GenreRadar({ genres }) {
-  const data = useMemo(() => buildRadarData(genres), [genres]);
-
+function PersonaRadar({ data = [] }) {
   return (
     <div className="genre-radar-wrap">
       <ResponsiveContainer width="100%" height={240}>
         <RadarChart data={data}>
           <PolarGrid stroke="rgba(245,247,251,0.14)" />
           <PolarAngleAxis
-            dataKey="genre"
+            dataKey="axis"
             tick={{ fill: "rgba(245,247,251,0.78)", fontSize: 12 }}
           />
           <PolarRadiusAxis
@@ -182,11 +180,12 @@ function GenreRadar({ genres }) {
             axisLine={false}
           />
           <Radar
-            name="Genres"
+            name="Persona"
             dataKey="value"
             stroke="#8a7dff"
+            strokeWidth={2}
             fill="#6d5dfc"
-            fillOpacity={0.45}
+            fillOpacity={0.6}
           />
         </RadarChart>
       </ResponsiveContainer>
@@ -460,10 +459,10 @@ function DashboardView({
 
       <div className="story-grid">
         <div className="story-card">
-          <div className="story-label">Your top genres</div>
-          <div className="story-title">This is your taste core.</div>
-          <GenreRadar genres={user.user_top_genres} />
-        </div>
+          <div className="story-label">Your persona shape</div>
+          <div className="story-title">This is your taste profile.</div>
+            <PersonaRadar data={data.persona_radar || []} />
+          </div>
 
         <div className="story-card">
           <div className="story-label">Your favorite eras</div>
