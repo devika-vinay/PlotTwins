@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { fetchBusinessEvent } from "../api";
 import "../styles.css";
 
@@ -19,39 +19,37 @@ import tvIcon from "../assets/genres/tv.png";
 import warIcon from "../assets/genres/war.png";
 import westernIcon from "../assets/genres/western.png";
 
+const genreIconMap = {
+  Action: actionIcon,
+  Adventure: adventureIcon,
+  Animation: animationIcon,
+  Comedy: comedyIcon,
+  Crime: crimeIcon,
+  Drama: dramaIcon,
+  Family: familyIcon,
+  Fantasy: fantasyIcon,
+  Horror: horrorIcon,
+  Mystery: mysteryIcon,
+  Romance: romanceIcon,
+  "Science Fiction": scifiIcon,
+  Thriller: thrillerIcon,
+  "TV Movie": tvIcon,
+  War: warIcon,
+  Western: westernIcon,
+};
 
 function GenreIcons({ genres = [] }) {
-  const iconMap = {
-    Action: actionIcon,
-    Adventure: adventureIcon,
-    Animation: animationIcon,
-    Comedy: comedyIcon,
-    Crime: crimeIcon,
-    Drama: dramaIcon,
-    Family: familyIcon,
-    Fantasy: fantasyIcon,
-    Horror: horrorIcon,
-    Mystery: mysteryIcon,
-    Romance: romanceIcon,
-    "Science Fiction": scifiIcon,
-    Thriller: thrillerIcon,
-    "TV Movie": tvIcon,
-    War: warIcon,
-    Western: westernIcon,
-  };
-
   return (
     <div className="genre-icon-row">
       {genres.map((g) => (
         <div key={g} className="genre-icon">
-          {iconMap[g] && <img src={iconMap[g]} alt={g} />}
+          {genreIconMap[g] && <img src={genreIconMap[g]} alt={g} />}
           <span>{g}</span>
         </div>
       ))}
     </div>
   );
 }
-
 
 function TechnicalDetails({ data }) {
   const [open, setOpen] = useState(false);
@@ -104,21 +102,39 @@ function TechnicalDetails({ data }) {
 function WhyThisWorks({ points }) {
   if (!points || points.length === 0) {
     return (
-      <div className="panel">
-        <div className="bullet-line">No business rationale was returned for this event yet.</div>
+      <div className="why-list">
+        <div className="why-item">
+          <span className="why-check">✓</span>
+          <span>No business rationale was returned for this event yet.</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="panel">
+    <div className="why-list">
       {points.map((point, idx) => (
-        <div key={idx} className="bullet-line">
-          • {point}
+        <div key={idx} className="why-item">
+          <span className="why-check">✓</span>
+          <span>{point}</span>
         </div>
       ))}
     </div>
   );
+}
+
+function normalizeThemeKey(value = "") {
+  const text = String(value).toLowerCase();
+
+  if (text.includes("horror") || text.includes("spooky") || text.includes("halloween")) return "theme-horror";
+  if (text.includes("spring")) return "theme-spring";
+  if (text.includes("summer")) return "theme-summer";
+  if (text.includes("holiday") || text.includes("winter")) return "theme-winter";
+  if (text.includes("family")) return "theme-family";
+  if (text.includes("fantasy") || text.includes("adventure")) return "theme-fantasy";
+  if (text.includes("crime") || text.includes("thriller") || text.includes("mystery")) return "theme-crime";
+
+  return "theme-default";
 }
 
 export default function BusinessEventPlanner() {
@@ -149,16 +165,20 @@ export default function BusinessEventPlanner() {
     }
   }
 
+  const heroThemeClass = useMemo(() => {
+    return normalizeThemeKey(data?.metrics?.event_theme || data?.metrics?.persona_name || "");
+  }, [data]);
+
   return (
     <div className="app-shell">
       <main className="container">
-        <div className="page-kicker">PlotTwins for Exhibitors</div>
+        <div className="page-kicker planner-kicker">PlotTwins for Exhibitors</div>
         <div className="page-title">Local Event Planner</div>
-        <div className="page-subtitle">
-          Enter a theatre FSA to generate a screening concept that will bring audiences together and drive revenue.
+        <div className="page-subtitle planner-subtitle">
+          Enter a theatre FSA to generate a screening concept that will bring audiences together and drive revenue based on local taste clusters.
         </div>
 
-        <form className="search-form" onSubmit={handleSearch}>
+        <form className="search-form planner-search" onSubmit={handleSearch}>
           <input
             className="search-input"
             type="text"
@@ -181,10 +201,13 @@ export default function BusinessEventPlanner() {
 
         {data && (
           <>
-            <div className="hero">
-              <div className="hero-kicker">Recommended event for {submittedFsa}</div>
-              <div className="hero-title">{data.hero.event_title}</div>
-              <div className="hero-sub">{data.hero.event_pitch}</div>
+            <div className={`hero planner-hero ${heroThemeClass}`}>
+              <div className="hero-overlay" />
+              <div className="hero-content">
+                <div className="hero-kicker">Recommended event for {submittedFsa}</div>
+                <div className="hero-title">{data.hero.event_title}</div>
+                <div className="hero-sub">{data.hero.event_pitch}</div>
+              </div>
             </div>
 
             <div className="metric-grid">
@@ -213,16 +236,24 @@ export default function BusinessEventPlanner() {
               </div>
             </div>
 
-            <div className="section-head">Why this works</div>
-            <WhyThisWorks points={data.why_this_works} />
+            <div className="panel-dark planner-bottom-card">
+              <div className="planner-bottom-grid">
+                <div>
+                  <div className="section-head planner-section-head">Why this works</div>
+                  <WhyThisWorks points={data.why_this_works} />
+                </div>
 
-            <div className="section-head">Audience profile</div>
-            <div className="panel-dark">
-              <div className="metric-label">Local taste signals</div>
-              <div className="metric-value audience-metric-value">
-                {data.audience_profile.persona_name}
+                <div>
+                  <div className="section-head planner-section-head">Audience profile</div>
+                  <div className="planner-audience-card">
+                    <div className="metric-label">Local taste signals</div>
+                    <div className="metric-value audience-metric-value">
+                      {data.audience_profile.persona_name}
+                    </div>
+                    <GenreIcons genres={data.audience_profile.top_genres || []} />
+                  </div>
+                </div>
               </div>
-              <GenreIcons genres={data.audience_profile.top_genres || []} />
             </div>
 
             <TechnicalDetails data={data.technical_details} />

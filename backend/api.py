@@ -26,7 +26,6 @@ app.add_middleware(
     allow_origins=[
         "https://plot-twins.vercel.app",
         "https://plot-twins.vercel.app/business",
-        "https://cinematic-interface--devikavinay14.replit.app",
         "http://localhost:5173",
     ],
     allow_credentials=True,

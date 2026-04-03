@@ -45,40 +45,76 @@ import avatar3 from "./assets/profilepics/p3.png";
 import avatar4 from "./assets/profilepics/p4.png";
 import avatar5 from "./assets/profilepics/p5.png";
 
+const avatarMap = [avatar1, avatar2, avatar3, avatar4, avatar5];
 
-const avatarMap = [
-  avatar1,
-  avatar2,
-  avatar3,
-  avatar4,
-  avatar5,
-];
+const genreIconMap = {
+  Action: actionIcon,
+  Adventure: adventureIcon,
+  Animation: animationIcon,
+  Comedy: comedyIcon,
+  Crime: crimeIcon,
+  Drama: dramaIcon,
+  Family: familyIcon,
+  Fantasy: fantasyIcon,
+  Horror: horrorIcon,
+  Mystery: mysteryIcon,
+  Romance: romanceIcon,
+  "Science Fiction": scifiIcon,
+  Thriller: thrillerIcon,
+  "TV Movie": tvIcon,
+  War: warIcon,
+  Western: westernIcon,
+};
+
+const posterMap = {
+  "Blow Out": blowOutPoster,
+  "The Hunger Games Catching Fire": catchingFirePoster,
+  Coco: cocoPoster,
+  Cure: curePoster,
+  "Daffy Ducks Quackbusters": daffyDucksPoster,
+  "Everything Everywhere All At Once": everythingEverywherePoster,
+  "The Hunger Games": hungerGamesPoster,
+  "Lost Highway": lostHighwayPoster,
+  "Night Gallery": nightGalleryPoster,
+  "Spider Man Into The Spider Verse": spidermanPoster,
+  "The Ghost Of Sierra De Cobre": ghostOfSierraPoster,
+  "The Girl Who Knew Too Much": girlWhoKnewTooMuchPoster,
+  "The Girl With The Dragon Tattoo": girlWithDragonTattooPoster,
+  "The Snowman": snowmanPoster,
+  "Thor Ragnarok": thorPoster,
+  "Toy Story": toyStoryPoster,
+  "Wind River": windRiverPoster,
+  Zodiac: zodiacPoster,
+};
+
+function cleanClusterName(name) {
+  if (!name) return "";
+  return String(name).replace(/\s*&\s*Viewer$/i, "").replace(/\s+Viewer$/i, "").trim();
+}
+
+function getGenreIcon(genre) {
+  return genreIconMap[genre] || null;
+}
 
 function MatchCard({ match, avatarIndex }) {
   const avatar = avatarMap[avatarIndex % avatarMap.length];
 
   return (
-    <div className="match-card">
-      <div className="match-content">
-
-        {/* LEFT SIDE */}
-        <div className="match-left">
-          <div className="match-name">{match.display_name}</div>
-
-          <div className="chip-wrap">
-            {(match.badges || []).map((badge) => (
-              <span key={badge} className="chip">
-                {badge}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* RIGHT SIDE (AVATAR) */}
+    <div className="match-card cinematic-match-card">
+      <div className="match-avatar-glow">
         <div className="match-avatar">
-          <img src={avatar} alt="avatar" />
+          <img src={avatar} alt={match.display_name} />
         </div>
+      </div>
 
+      <div className="match-name centered">{match.display_name}</div>
+
+      <div className="chip-wrap centered">
+        {(match.badges || []).map((badge) => (
+          <span key={badge} className="chip twin-chip">
+            {badge}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -137,33 +173,6 @@ function TechnicalDetails({ data }) {
   );
 }
 
-function cleanClusterName(name) {
-  if (!name) return "";
-  return String(name).replace(/\s*&\s*Viewer$/i, "").replace(/\s+Viewer$/i, "").trim();
-}
-
-function buildRadarData(genres = []) {
-  const axes = [
-    "Drama",
-    "Crime",
-    "Mystery",
-    "Thriller",
-    "Comedy",
-    "Fantasy",
-    "Adventure",
-    "Horror",
-    "Animation",
-    "TV Movie",
-  ];
-
-  const normalized = new Set((genres || []).map((g) => String(g).trim().toLowerCase()));
-
-  return axes.map((axis) => ({
-    genre: axis,
-    value: normalized.has(axis.toLowerCase()) ? 1 : 0,
-  }));
-}
-
 function PersonaRadar({ data = [] }) {
   return (
     <div className="genre-radar-wrap">
@@ -174,18 +183,14 @@ function PersonaRadar({ data = [] }) {
             dataKey="axis"
             tick={{ fill: "rgba(245,247,251,0.78)", fontSize: 12 }}
           />
-          <PolarRadiusAxis
-            domain={[0, 1]}
-            tick={false}
-            axisLine={false}
-          />
+          <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
           <Radar
             name="Persona"
             dataKey="value"
-            stroke="#8a7dff"
+            stroke="#d35cff"
             strokeWidth={2}
-            fill="#6d5dfc"
-            fillOpacity={0.6}
+            fill="#a855f7"
+            fillOpacity={0.5}
           />
         </RadarChart>
       </ResponsiveContainer>
@@ -194,57 +199,21 @@ function PersonaRadar({ data = [] }) {
 }
 
 function GenreIcons({ genres = [] }) {
-  const iconMap = {
-    Action: actionIcon,
-    Adventure: adventureIcon,
-    Animation: animationIcon,
-    Comedy: comedyIcon,
-    Crime: crimeIcon,
-    Drama: dramaIcon,
-    Family: familyIcon,
-    Fantasy: fantasyIcon,
-    Horror: horrorIcon,
-    Mystery: mysteryIcon,
-    Romance: romanceIcon,
-    "Science Fiction": scifiIcon,
-    Thriller: thrillerIcon,
-    "TV Movie": tvIcon,
-    War: warIcon,
-    Western: westernIcon,
-  };
-
   return (
     <div className="genre-icon-row">
-      {genres.map((g) => (
-        <div key={g} className="genre-icon">
-          <img src={iconMap[g]} alt={g} />
-          <span>{g}</span>
-        </div>
-      ))}
+      {genres.map((g) => {
+        const icon = getGenreIcon(g);
+
+        return (
+          <div key={g} className="genre-icon">
+            {icon && <img src={icon} alt={g} />}
+            <span>{g}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
-
-const posterMap = {
-  "Blow Out": blowOutPoster,
-  "The Hunger Games Catching Fire": catchingFirePoster,
-  "Coco": cocoPoster,
-  "Cure": curePoster,
-  "Daffy Ducks Quackbusters": daffyDucksPoster,
-  "Everything Everywhere All At Once": everythingEverywherePoster,
-  "The Hunger Games": hungerGamesPoster,
-  "Lost Highway": lostHighwayPoster,
-  "Night Gallery": nightGalleryPoster,
-  "Spider Man Into The Spider Verse": spidermanPoster,
-  "The Ghost Of Sierra De Cobre": ghostOfSierraPoster,
-  "The Girl Who Knew Too Much": girlWhoKnewTooMuchPoster,
-  "The Girl With The Dragon Tattoo": girlWithDragonTattooPoster,
-  "The Snowman": snowmanPoster,
-  "Thor Ragnarok": thorPoster,
-  "Toy Story": toyStoryPoster,
-  "Wind River": windRiverPoster,
-  "Zodiac": zodiacPoster
-};
 
 function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSelectCluster }) {
   const positioned = useMemo(() => {
@@ -256,20 +225,21 @@ function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSel
     const others = clusters.filter((c) => c.cluster !== userCluster.cluster).slice(0, 5);
 
     const centerX = 50;
-    const centerY = 50;
-    const orbitRadius = 30;
-    const bubbleSize = 170;
+    const centerY = 53;
+    const orbitRadius = 31;
+    const centerSize = 200;
+    const outerSize = 180;
 
     const result = [
       {
         ...userCluster,
         x: centerX,
         y: centerY,
-        size: bubbleSize,
+        size: centerSize,
       },
     ];
 
-    const flowerAngles = [-90, -18, 54, 126, 198, 270];
+    const flowerAngles = [-90, -20, 55, 125, 200];
 
     others.forEach((cluster, idx) => {
       const angle = (flowerAngles[idx] * Math.PI) / 180;
@@ -278,7 +248,7 @@ function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSel
         ...cluster,
         x: centerX + Math.cos(angle) * orbitRadius,
         y: centerY + Math.sin(angle) * orbitRadius,
-        size: bubbleSize,
+        size: outerSize,
       });
     });
 
@@ -292,13 +262,13 @@ function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSel
 
   return (
     <>
-      <div className="section-head">Cluster universe</div>
 
       <div className="cluster-layout">
         <div className="cluster-canvas panel-dark">
           {positioned.map((cluster) => {
             const isSelected = detailCluster?.cluster === cluster.cluster;
             const isUserCluster = selectedUserCluster === cluster.cluster;
+            const bubbleIcon = getGenreIcon(cluster?.top_genres?.[0]);
 
             return (
               <button
@@ -313,84 +283,85 @@ function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSel
                 onClick={() => onSelectCluster(cluster)}
                 type="button"
               >
-                <span className="cluster-bubble-title">
-                  {cleanClusterName(cluster.persona_name)}
-                </span>
+                <div className="cluster-bubble-inner">
+                  <span className="cluster-bubble-title">
+                    {cleanClusterName(cluster.persona_name)}
+                  </span>
+                </div>
               </button>
             );
           })}
         </div>
 
         <div className="panel cluster-detail-panel">
-          <div className="cluster-detail-top">
-            <div className="story-label">
-              {detailCluster?.cluster === selectedUserCluster ? "Your cluster" : "Selected cluster"}
-            </div>
-
-            <div className="story-title cluster-detail-title">
-              {cleanClusterName(detailCluster?.persona_name || "No cluster selected")}
-            </div>
-
+          <div className="story-label">
+            {detailCluster?.cluster === selectedUserCluster ? "Your cluster" : "Selected cluster"}
           </div>
 
-          <div className="cluster-detail-middle">
-            <div className="story-label">Shared genre DNA</div>
-            <GenreIcons genres={detailCluster?.top_genres || []} />
+          <div className="cluster-detail-title">
+            {cleanClusterName(detailCluster?.persona_name || "No cluster selected")}
           </div>
 
-          <div className="cluster-detail-bottom">
-            <div className="story-label">Movies from this cluster</div>
-            <MovieShelf movies={detailCluster?.example_movies || []} />
+          <div className="story-label" style={{ marginBottom: "14px" }}>
+            Shared genre DNA
           </div>
+          <GenreIcons genres={detailCluster?.top_genres || []} />
+
+          <div className="story-label" style={{ marginTop: "30px", marginBottom: "14px" }}>
+            Movies from this cluster
+          </div>
+          <MovieShelf movies={detailCluster?.example_movies || []} />
         </div>
       </div>
     </>
   );
 }
 
-function EraTimeline({ userEras = [], eraBounds }) {
+function EraTimeline({ userEras = [] }) {
+  const decades = [1920, 1940, 1960, 1980, 2000, 2020];
+
   const parsedUserEras = (userEras || [])
     .map((e) => parseInt(String(e).replace("s", ""), 10))
-    .filter((e) => !Number.isNaN(e))
-    .sort((a, b) => a - b);
+    .filter((e) => !Number.isNaN(e));
 
-  const minEra = eraBounds?.min;
-  const maxEra = eraBounds?.max;
-
-  if (!minEra || !maxEra || parsedUserEras.length === 0) {
+  if (parsedUserEras.length === 0) {
     return <div className="small-note">Not enough era data</div>;
   }
 
-  const range = maxEra - minEra || 1;
+  const highlighted = new Set(parsedUserEras);
 
   return (
-    <div className="era-timeline-clean">
-      <div className="era-baseline" />
+    <div className="era-timeline-modern">
+      <div className="era-track" />
 
-      {parsedUserEras.map((year, idx) => {
-        const position = ((year - minEra) / range) * 100;
-        const isTop = idx % 2 === 0;
+      {decades.map((year) => {
+        const active = highlighted.has(year);
 
         return (
           <div
             key={year}
-            className={`era-marker ${isTop ? "top" : "bottom"}`}
-            style={{ left: `${position}%` }}
+            className={`era-node ${active ? "active" : ""}`}
+            style={{ left: `${((year - 1920) / (2020 - 1920)) * 100}%` }}
           >
-            <div className="era-dot" />
-            <div className="era-stem" />
-            <div className="era-content">
-              <div className="era-year">{year}s</div>
-            </div>
+            <div className="era-node-dot" />
+            <div className="era-node-label">{year}s</div>
           </div>
         );
       })}
 
-      <div className="era-bound era-bound-left">{minEra}s</div>
-      <div className="era-bound era-bound-right">{maxEra}s</div>
+      {parsedUserEras.map((year) => (
+        <div
+          key={`highlight-${year}`}
+          className="era-highlight"
+          style={{ left: `${((year - 1920) / (2020 - 1920)) * 100}%` }}
+        >
+          <div className="era-highlight-pill">{year}s</div>
+        </div>
+      ))}
     </div>
   );
 }
+
 
 function DashboardView({
   data,
@@ -404,7 +375,6 @@ function DashboardView({
   const matches = data?.matches || [];
   const technicalDetails = data?.technical_details;
   const clusters = data?.clusters || [];
-
   const [selectedCluster, setSelectedCluster] = useState(null);
 
   useEffect(() => {
@@ -433,6 +403,14 @@ function DashboardView({
         </button>
       </form>
 
+      <div className="hero">
+        <div className="hero-kicker">Your PlotTwins identity</div>
+        <div className="hero-title">{data.hero_title}</div>
+      </div>
+
+      <div className="section-head">Cluster universe</div>
+      <div className="small-note">Where you sit in the cinematic cosmos.</div>
+
       <ClusterUniverse
         clusters={clusters}
         selectedCluster={selectedCluster}
@@ -440,47 +418,38 @@ function DashboardView({
         onSelectCluster={setSelectedCluster}
       />
 
-      <div className="hero">
-        <div className="hero-kicker">Your PlotTwins identity</div>
-        <div className="hero-title">{data.hero_title}</div>
+      <div className="section-head" style={{ marginTop: "6px" }}>
+        What your taste says about you
       </div>
 
-      {data.newly_generated && (
-        <div className="message info">
-          Generated a fresh narrative and saved it for future visits.
-        </div>
-      )}
-
-      <div className="section-head">What your taste says about you</div>
-      <div className="panel">
+      <div className="panel" style={{ marginBottom: "18px" }}>
         <div className="story-copy">{data.taste_story}</div>
       </div>
-
 
       <div className="story-grid">
         <div className="story-card">
           <div className="story-label">Your persona shape</div>
           <div className="story-title">This is your taste profile.</div>
-            <PersonaRadar data={data.persona_radar || []} />
-          </div>
+          <PersonaRadar data={data.persona_radar || []} />
+        </div>
 
         <div className="story-card">
           <div className="story-label">Your favorite eras</div>
           <div className="story-title">This is your comfort zone.</div>
-          <EraTimeline
-            userEras={user.user_top_eras}
-            eraBounds={data.era_bounds}
-          />
+          <EraTimeline userEras={user.user_top_eras} />
         </div>
       </div>
 
-      <div className="section-head">Your people</div>
+      <div className="section-head" style={{ marginTop: "34px" }}>
+        Your people
+      </div>
+
       <div className="small-note people-note">{data.people_story}</div>
 
       {matches.length === 0 ? (
         <div className="message info">No matches found for this user.</div>
       ) : (
-        <div className="matches-grid">
+        <div className="matches-grid people-row">
           {matches.map((match, index) => (
             <MatchCard
               key={`${submittedUsername}-${match.match_user}`}
@@ -496,6 +465,7 @@ function DashboardView({
   );
 }
 
+
 function LandingView({
   usernameInput,
   setUsernameInput,
@@ -506,12 +476,15 @@ function LandingView({
   return (
     <div className="landing-view">
       <div className="page-kicker">PlotTwins</div>
+
       <div className="page-title">Find your movie twin.</div>
+
       <div className="page-subtitle">
-        Discover your cinema identity, the kind of stories you love, and the people nearby who watch like you.
+        Discover your cinema identity, the kind of stories you love,
+        and the people nearby who watch like you.
       </div>
 
-      <form className="search-form" onSubmit={handleSearch}>
+      <form className="search-form search-form-hero" onSubmit={handleSearch}>
         <input
           className="search-input"
           type="text"
