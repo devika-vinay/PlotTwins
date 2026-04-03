@@ -8,7 +8,7 @@ echo "Starting pipeline..."
 # ----------------------------
 if [ ! -d "venv" ]; then
   echo "Creating and activating virtual environment..."
-  python -m venv venv
+  py -3.12 -m venv venv
 fi
 source venv/Scripts/activate
 

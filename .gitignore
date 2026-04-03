@@ -7,6 +7,7 @@ data/cache/*
 !data/cache/user_dashboard.parquet
 !data/cache/user_matches.parquet
 !data/cache/user_narratives.parquet
+!data/cache/event_suggestions.parquet
 
 venv/
 __pycache__/
