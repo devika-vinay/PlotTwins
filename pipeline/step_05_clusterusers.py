@@ -33,7 +33,7 @@ STABILITY_RUNS = 10
 
 def cluster_stability(X: np.ndarray, k: int, runs: int = 10) -> float:
     clusterings = []
-
+    # Measures how consistent clustering is across different random initializations
     for seed in range(runs):
         km = KMeans(n_clusters=k, random_state=seed, n_init=N_INIT)
         labels = km.fit_predict(X)
@@ -42,6 +42,7 @@ def cluster_stability(X: np.ndarray, k: int, runs: int = 10) -> float:
     scores = []
     for i in range(len(clusterings)):
         for j in range(i + 1, len(clusterings)):
+            # Adjusted Rand Index compares similarity between two clusterings
             score = adjusted_rand_score(clusterings[i], clusterings[j])
             scores.append(score)
 
@@ -93,7 +94,7 @@ def main():
     for k in valid_k_values:
         kmeans = KMeans(n_clusters=k, random_state=RANDOM_STATE, n_init=N_INIT)
         labels = kmeans.fit_predict(X)
-
+        # Multiple metrics to evaluate clustering quality from different perspectives
         sil = silhouette_score(X, labels)
         db = davies_bouldin_score(X, labels)
         ch = calinski_harabasz_score(X, labels)
@@ -109,6 +110,7 @@ def main():
     # ----------------------------
     # Cluster stability
     # ----------------------------
+    # Evaluates robustness of clustering for each k
     stability_scores = {}
     for k in valid_k_values:
         stability_scores[k] = cluster_stability(X.values, k, runs=STABILITY_RUNS)
@@ -123,6 +125,7 @@ def main():
     # ----------------------------
     # Final clustering
     # ----------------------------
+    # Use predefined FINAL_K if valid, otherwise fallback to largest valid k
     final_k = FINAL_K if FINAL_K in valid_k_values else valid_k_values[-1]
 
     kmeans = KMeans(n_clusters=final_k, random_state=RANDOM_STATE, n_init=N_INIT)
@@ -135,7 +138,7 @@ def main():
     # ----------------------------
     # Cluster interpretation
     # ----------------------------
-    # Use PCA-space means vs overall mean, since this step receives PCA outputs
+    # Compare each cluster's average profile to global average (relative positioning)
     X_cluster = X.copy()
     X_cluster["cluster"] = clusters
 
@@ -146,6 +149,7 @@ def main():
     # ----------------------------
     # 2D t-SNE map
     # ----------------------------
+    # t-SNE creates a visual embedding preserving local structure (for visualization only)
     # Perplexity must be < n_samples; clamp to a safe range
     n_samples = len(X)
     perplexity_2d = min(40, max(5, n_samples - 1))
@@ -170,6 +174,7 @@ def main():
     # ----------------------------
     # 3D t-SNE map
     # ----------------------------
+    # Same idea as 2D but allows richer visualization in 3D space
     perplexity_3d = min(40, max(5, n_samples - 1))
     if perplexity_3d >= n_samples:
         perplexity_3d = max(1, n_samples // 3)

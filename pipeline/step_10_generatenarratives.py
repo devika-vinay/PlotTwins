@@ -5,33 +5,36 @@ import pandas as pd
 from pipeline.step_00_config import CACHE_DIR
 from dotenv import load_dotenv
 from openai import OpenAI
-
+# ── Load environment variables ─────────────────────────────────────────────
 load_dotenv()  # loads .env into environment
 
 api_key = os.getenv("OPENAI_API_KEY")
+# ── Input and output artifacts ────────────────────────────────────────────
+USER_DASHBOARD_IN = CACHE_DIR / "user_dashboard.parquet" # per-user dashboard from step 09
+USER_MATCHES_IN = CACHE_DIR / "user_matches.parquet" # matched users info
 
-USER_DASHBOARD_IN = CACHE_DIR / "user_dashboard.parquet"
-USER_MATCHES_IN = CACHE_DIR / "user_matches.parquet"
+USER_NARRATIVES_OUT = CACHE_DIR / "user_narratives.parquet" # output with generated narratives
+# ── Config ───────────────────────────────────────────────────────────────
+MODEL_NAME = os.getenv("PLOTTWINS_NARRATIVE_MODEL", "gpt-5") # default model
+SLEEP_BETWEEN_CALLS = 0.3 # rate-limit between API calls
 
-USER_NARRATIVES_OUT = CACHE_DIR / "user_narratives.parquet"
-
-MODEL_NAME = os.getenv("PLOTTWINS_NARRATIVE_MODEL", "gpt-5")
-SLEEP_BETWEEN_CALLS = 0.3
-
-
+# ── Helper functions ──────────────────────────────────────────────────────
 def safe_split_csv(value):
+    """Split a comma-separated string into a list, ignoring blanks or NaN"""
     if pd.isna(value):
         return []
     return [x.strip() for x in str(value).split(",") if x.strip()]
 
 
 def safe_split_pipe(value):
+    """Split a pipe-separated string into a list, ignoring blanks or NaN"""
     if pd.isna(value):
         return []
     return [x.strip() for x in str(value).split("|") if x.strip()]
 
 
 def format_era_label(raw):
+    """Convert raw era labels like 'era_1990.0' → '1990s'"""
     if pd.isna(raw):
         return ""
     s = str(raw).strip().replace("era_", "")
@@ -43,10 +46,12 @@ def format_era_label(raw):
 
 
 def format_eras(values):
+    """Apply era formatting to a list of values"""
     return [format_era_label(v) for v in values if str(v).strip()]
 
 
 def prettify_popularity(pop_value):
+    """Map popularity tier codes to user-friendly strings"""
     mapping = {
         "pop_high": "blockbuster leaning",
         "pop_mid": "a mix of mainstream favorites and less obvious picks",
@@ -56,6 +61,7 @@ def prettify_popularity(pop_value):
 
 
 def prettify_behavior(behavior):
+    """Map cluster/user behavior codes to user-friendly strings"""
     mapping = {
         "strongly positive": "a generous rater",
         "slightly positive": "fairly easy to win over",
@@ -67,6 +73,7 @@ def prettify_behavior(behavior):
 
 
 def build_match_summary(user_matches: pd.DataFrame):
+    """Summarize the user's matches by counts and names"""
     if user_matches.empty:
         return {
             "match_names": [],
@@ -84,6 +91,7 @@ def build_match_summary(user_matches: pd.DataFrame):
 
 
 def build_prompt_payload(user_row: pd.Series, user_matches: pd.DataFrame):
+    """Construct a JSON payload with user + cluster info for LLM prompt"""
     user_genres = safe_split_csv(user_row.get("user_top_genres", ""))
     user_eras = format_eras(safe_split_csv(user_row.get("user_top_eras", "")))
     cluster_genres = safe_split_pipe(user_row.get("top_genres", ""))
@@ -110,7 +118,7 @@ def build_prompt_payload(user_row: pd.Series, user_matches: pd.DataFrame):
 
 
 def extract_response_text(response):
-    # Most convenient path
+    """Extract text from OpenAI response object, with fallback"""
     if hasattr(response, "output_text") and response.output_text:
         return response.output_text
 
@@ -130,6 +138,7 @@ def extract_response_text(response):
 
 
 def generate_narrative(client: OpenAI, payload: dict):
+    """Call OpenAI to generate a PlotTwins narrative for a single user"""
     developer_prompt = """
 You are writing user-facing copy for a movie taste app called PlotTwins.
 
@@ -191,8 +200,11 @@ Write the JSON output now.
         "raw_llm_response": raw_text,
     }
 
-
+# ─────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────
 def main():
+    # Validate inputs
     if not USER_DASHBOARD_IN.exists():
         raise FileNotFoundError(f"[10_generate_narratives] Missing input: {USER_DASHBOARD_IN}")
 
@@ -204,10 +216,10 @@ def main():
             "[10_generate_narratives] OPENAI_API_KEY is not set. "
             "Set it in your environment before running this step."
         )
-
+    # Load user data and matches
     dashboard = pd.read_parquet(USER_DASHBOARD_IN)
     matches = pd.read_parquet(USER_MATCHES_IN)
-
+    # Handle incremental processing if some narratives exist
     existing = pd.DataFrame()
     if USER_NARRATIVES_OUT.exists():
         existing = pd.read_parquet(USER_NARRATIVES_OUT)
@@ -218,7 +230,7 @@ def main():
     client = OpenAI(api_key=api_key)
 
     rows = []
-
+    # Iterate over users and generate narratives
     for _, user_row in dashboard.iterrows():
         user_id = str(user_row["user"])
 
@@ -240,6 +252,7 @@ def main():
             })
             print(f"[10_generate_narratives] Generated narrative for user {user_id}")
         except Exception as e:
+            # fallback in case of API failure
             rows.append({
                 "user": user_id,
                 "taste_headline": str(user_row.get("short_label", "Your movie identity")),
@@ -251,7 +264,7 @@ def main():
             print(f"[10_generate_narratives] Failed for user {user_id}: {e}")
 
         time.sleep(SLEEP_BETWEEN_CALLS)
-
+    # Combine with existing cache and remove duplicates
     new_df = pd.DataFrame(rows)
 
     if existing.empty:
@@ -261,7 +274,7 @@ def main():
     else:
         final_df = pd.concat([existing, new_df], ignore_index=True)
         final_df = final_df.drop_duplicates(subset=["user"], keep="last")
-
+    # Save final output
     final_df.to_parquet(USER_NARRATIVES_OUT, index=False)
     print("[10_generate_narratives] Saved:", USER_NARRATIVES_OUT)
 

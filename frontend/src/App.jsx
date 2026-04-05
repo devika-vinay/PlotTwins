@@ -89,14 +89,17 @@ const posterMap = {
 
 function cleanClusterName(name) {
   if (!name) return "";
+  // Remove trailing "Viewer" or "& Viewer" from cluster persona names
   return String(name).replace(/\s*&\s*Viewer$/i, "").replace(/\s+Viewer$/i, "").trim();
 }
 
 function getGenreIcon(genre) {
+  // Return the matching genre icon or null if unavailable
   return genreIconMap[genre] || null;
 }
 
 function MatchCard({ match, avatarIndex }) {
+  // Display a single match with avatar, name, and badges
   const avatar = avatarMap[avatarIndex % avatarMap.length];
 
   return (
@@ -122,7 +125,7 @@ function MatchCard({ match, avatarIndex }) {
 
 function MovieShelf({ movies }) {
   if (!movies || movies.length === 0) return null;
-
+  // Show up to 3 movie posters for a cluster
   return (
     <div className="movie-grid">
       {movies.slice(0, 3).map((movie) => (
@@ -137,7 +140,7 @@ function MovieShelf({ movies }) {
 
 function TechnicalDetails({ data }) {
   const [open, setOpen] = useState(false);
-
+  // Collapsible panel to show raw technical info about user
   return (
     <div className="technical-wrapper">
       <button className="expander-btn" onClick={() => setOpen((prev) => !prev)}>
@@ -218,7 +221,7 @@ function GenreIcons({ genres = [] }) {
 function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSelectCluster }) {
   const positioned = useMemo(() => {
     if (!clusters || clusters.length === 0) return [];
-
+    // Place the user's cluster at center and up to 5 other clusters around in a "flower" layout
     const userCluster =
       clusters.find((c) => c.cluster === selectedUserCluster) || clusters[0];
 
@@ -319,7 +322,7 @@ function ClusterUniverse({ clusters, selectedCluster, selectedUserCluster, onSel
 
 function EraTimeline({ userEras = [] }) {
   const decades = [1920, 1940, 1960, 1980, 2000, 2020];
-
+  // Convert eras like "1980s" to integer values and remove invalid entries
   const parsedUserEras = (userEras || [])
     .map((e) => parseInt(String(e).replace("s", ""), 10))
     .filter((e) => !Number.isNaN(e));
@@ -329,7 +332,7 @@ function EraTimeline({ userEras = [] }) {
   }
 
   const highlighted = new Set(parsedUserEras);
-
+  // Render timeline track and highlight user's preferred eras
   return (
     <div className="era-timeline-modern">
       <div className="era-track" />

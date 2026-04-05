@@ -10,7 +10,7 @@ MODERN_YEAR_CUTOFF = 2010
 SPECIALIST_SHARE = 0.35
 INTERNATIONAL_SHARE = 0.50
 
-# GTA-focused FSA list derived from the teammate-provided codes
+# GTA Forward Sortation Areas (first 3 characters of postal codes)
 GTA_FSAS = [
     # Toronto
     "M1B","M1C","M1E","M1G","M1H","M1J","M1K","M1L","M1M","M1N","M1P","M1R","M1S","M1T","M1V","M1W","M1X",
@@ -46,6 +46,7 @@ GTA_FSAS = [
 
 def _entropy_from_counts(counts: np.ndarray) -> float:
     """Shannon entropy over a distribution derived from counts."""
+    # Measures diversity (higher = more varied preferences)
     total = counts.sum()
     if total <= 0:
         return 0.0
@@ -63,6 +64,7 @@ def _top_value_and_share(series: pd.Series):
     return (top_val, share)
 
 def _fav_decade(years: pd.Series):
+    # Determine most frequent decade of watched content
     years = years.dropna().astype(int)
     if years.empty:
         return np.nan
@@ -70,6 +72,7 @@ def _fav_decade(years: pd.Series):
     return int(decades.value_counts().idxmax())
 
 def assign_region(fsa: str) -> str:
+    # Map postal prefix to GTA region
     if fsa.startswith("M"):
         return "Toronto"
     if fsa.startswith("L1"):
@@ -83,6 +86,7 @@ def assign_region(fsa: str) -> str:
     return "GTA"
 
 def main():
+    # Skip if already computed (cache optimization)
     if USER_PROFILES_OUT.exists():
         print("[03_user_profiles] Cache exists. Skipping user profile build.")
         return
@@ -91,6 +95,7 @@ def main():
     rng = np.random.default_rng(42)
 
     # ---- basic per-user rating behavior ----
+    # Aggregate core behavioral metrics per user
     base = df.groupby("user").agg(
         n_ratings=("rating", "size"),
         mean_rating=("rating", "mean"),
@@ -105,7 +110,7 @@ def main():
     ).reset_index()
 
     # ---- time preference flags ----
-    # classic_share / modern_share computed from interaction rows (not grouped agg directly)
+    # Compute share of classic vs modern movies per user
     year = df[["user", "year_released"]].copy()
     year["is_classic"] = (year["year_released"] < CLASSIC_YEAR_CUTOFF).astype(int)
     year["is_modern"] = (year["year_released"] >= MODERN_YEAR_CUTOFF).astype(int)
@@ -117,10 +122,11 @@ def main():
     ).reset_index()
 
     # ---- genre features ----
+    # Expand genres to compute per-user distributions
     g = df[["user", "genres_list"]].explode("genres_list").dropna(subset=["genres_list"])
     g_counts = g.groupby(["user", "genres_list"]).size().rename("cnt").reset_index()
 
-    # top_genre + share
+    # Extract dominant genre + diversity metrics
     top_genre = g_counts.groupby("user").apply(
         lambda x: pd.Series({
             "top_genre": x.sort_values("cnt", ascending=False).iloc[0]["genres_list"],
@@ -131,6 +137,7 @@ def main():
     ).reset_index()
 
     # ---- language features ----
+    # Extract dominant language and diversity
     l = df[["user", "languages_list"]].explode("languages_list").dropna(subset=["languages_list"])
     l_counts = l.groupby(["user", "languages_list"]).size().rename("cnt").reset_index()
 
@@ -142,7 +149,7 @@ def main():
         })
     ).reset_index()
 
-    # english share (robust to different spellings — keep simple)
+    # Estimate proportion of English-language content watched
     l["is_english"] = l["languages_list"].astype(str).str.lower().isin(["english", "en", "eng"]).astype(int)
     english_share = l.groupby("user")["is_english"].mean().rename("english_share").reset_index()
 
@@ -152,7 +159,7 @@ def main():
     user_profiles = user_profiles.merge(top_lang, on="user", how="left")
     user_profiles = user_profiles.merge(english_share, on="user", how="left")
 
-    # fill for users with missing lists
+    # Fill missing values for users with sparse metadata
     for col in ["classic_share", "modern_share", "english_share", "top_genre_share", "top_language_share",
                 "genre_entropy", "n_unique_genres", "n_unique_languages"]:
         if col in user_profiles.columns:
@@ -162,30 +169,30 @@ def main():
     def tags(row):
         t = []
 
-        # Classic vs modern
+        # Time preference
         if row.get("classic_share", 0) >= 0.40:
             t.append("old-timey classic lover")
         if row.get("modern_share", 0) >= 0.60:
             t.append("modern release chaser")
 
-        # Genre specialist vs omnivore
+        # Genre behavior
         if row.get("top_genre_share", 0) >= SPECIALIST_SHARE:
             t.append("genre specialist")
         if row.get("n_unique_genres", 0) >= 8 and row.get("top_genre_share", 0) < 0.25:
             t.append("genre omnivore")
 
-        # International watcher
+        # Language preference
         non_english_share = 1 - row.get("english_share", 0)
         if non_english_share >= INTERNATIONAL_SHARE:
             t.append("international watcher")
 
-        # Rating style
+        # Rating tendencies
         if row.get("mean_rating", 0) >= 4.0:
             t.append("high rater")
         if row.get("mean_rating", 5) <= 3.0:
             t.append("tough critic")
 
-        # Niche-ish proxy
+        # Proxy for niche taste (low popularity films)
         if row.get("avg_vote_count", 999999) <= 200:
             t.append("niche explorer")
 
@@ -194,6 +201,7 @@ def main():
     user_profiles["persona_tags"] = user_profiles.apply(tags, axis=1)
 
     # ---- assign synthetic GTA location ----
+    # Randomly assign users to GTA postal regions (for geographic analysis)
     user_profiles["fsa"] = rng.choice(GTA_FSAS, size=len(user_profiles), replace=True)
     user_profiles["region"] = user_profiles["fsa"].apply(assign_region)
 

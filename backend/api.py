@@ -1,9 +1,10 @@
+# Path & I/O imports
 from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+# Utilities for narrative generation
 from utilities.narrative_utils import get_or_create_narrative
 from utilities.event_narrative_utils import get_or_create_event_narrative
 
@@ -11,16 +12,16 @@ import json
 import ast
 from fastapi.responses import JSONResponse
 
-
+# Cache and data paths
 CACHE_DIR = Path("data/cache")
 USER_DASHBOARD_PATH = CACHE_DIR / "user_dashboard.parquet"
 USER_MATCHES_PATH = CACHE_DIR / "user_matches.parquet"
 USER_PROFILES_PATH = CACHE_DIR / "user_profiles.parquet"
 EVENT_SUGGESTIONS_PATH = Path("data/cache/event_suggestions.parquet")
 
-
+# FastAPI app setup
 app = FastAPI(title="PlotTwins API")
-
+# Configure CORS so frontend apps can access the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -33,20 +34,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# -----------------------------
+# Helper functions for text parsing and formatting
+# -----------------------------
 def split_pipe_text(value):
+    """Split a string separated by '|' into a list"""
     if pd.isna(value):
         return []
     return [x.strip() for x in str(value).split("|") if x.strip()]
 
 
 def split_csv_text(value):
+    """Split a string separated by ',' into a list"""
     if pd.isna(value):
         return []
     return [x.strip() for x in str(value).split(",") if x.strip()]
 
 
 def prettify_popularity(pop_value):
+    """Map raw popularity codes to human-readable strings"""
     mapping = {
         "pop_high": "Blockbuster leaning",
         "pop_mid": "Mainstream + niche mix",
@@ -56,6 +62,7 @@ def prettify_popularity(pop_value):
 
 
 def prettify_behavior(behavior):
+    """Map raw behavior codes to human-readable strings"""
     mapping = {
         "strongly positive": "Generous rater",
         "slightly positive": "Easy to please",
@@ -67,6 +74,7 @@ def prettify_behavior(behavior):
 
 
 def format_era_label(raw):
+    """Convert raw era value to readable format like '1990s'"""
     if pd.isna(raw):
         return ""
     s = str(raw).strip().replace("era_", "")
@@ -78,9 +86,11 @@ def format_era_label(raw):
 
 
 def format_eras(values):
+    """Apply format_era_label to a list of values"""
     return [format_era_label(v) for v in values if str(v).strip()]
 
 def extract_numeric_eras_from_value(value):
+    """Extract numeric years from a CSV-style string"""
     if pd.isna(value):
         return []
 
@@ -97,6 +107,7 @@ def extract_numeric_eras_from_value(value):
 
 
 def compute_era_bounds(dashboard: pd.DataFrame):
+    """Compute min/max era across all users in the dashboard"""
     all_eras = []
 
     if "user_top_eras" not in dashboard.columns:
@@ -113,7 +124,11 @@ def compute_era_bounds(dashboard: pd.DataFrame):
         "max": int(max(all_eras)),
     }
 
+# -----------------------------
+# User radar / persona utilities
+# -----------------------------
 def build_persona_radar(user_row):
+    """Compute normalized radar metrics for user's taste profile"""
     def safe_float(value, default=0.0):
         try:
             if pd.isna(value):
@@ -143,13 +158,14 @@ def build_persona_radar(user_row):
 
 
 def fallback_flavor_text(user_row):
+    """Generate fallback narrative if LLM narrative is missing"""
     genres = split_csv_text(user_row.get("user_top_genres", ""))
     eras = format_eras(split_csv_text(user_row.get("user_top_eras", "")))
     pop_raw = str(user_row.get("user_popularity_pref", ""))
     behavior_raw = str(user_row.get("user_behavior_profile", ""))
 
     parts = []
-
+    # Build flavor text based on top genres
     if len(genres) >= 3:
         parts.append(
             f"You seem drawn to {genres[0].lower()}, {genres[1].lower()}, and {genres[2].lower()} stories, "
@@ -159,7 +175,7 @@ def fallback_flavor_text(user_row):
         parts.append(
             f"Your taste leans toward {', '.join([g.lower() for g in genres])}, which gives your profile a distinct viewing personality."
         )
-
+    # Add flavor text based on top eras
     if len(eras) >= 2:
         parts.append(
             f"You also show a soft spot for films from the {eras[0]} and {eras[1]}, "
@@ -169,7 +185,7 @@ def fallback_flavor_text(user_row):
         parts.append(
             f"You seem especially comfortable with films from the {eras[0]}, which adds a nostalgic layer to your taste."
         )
-
+    # Popularity flavor
     if pop_raw == "pop_high":
         parts.append(
             "Your watch pattern leans toward well-known and widely loved titles, so you likely connect more with films that have made a big cultural impact."
@@ -182,7 +198,7 @@ def fallback_flavor_text(user_row):
         parts.append(
             "Your taste leans more toward less mainstream titles, which suggests you may enjoy exploring hidden gems rather than only sticking to the biggest releases."
         )
-
+    # Behavior flavor
     if behavior_raw == "strongly positive":
         parts.append(
             "You also come across as a generous viewer, someone who is usually happy to reward a film when it lands emotionally or stylistically."
@@ -202,8 +218,11 @@ def fallback_flavor_text(user_row):
 
     return " ".join(parts)
 
-
+# -----------------------------
+# Display / match helpers
+# -----------------------------
 def display_name(raw_user):
+    """Format username or fallback numeric ID"""
     raw = str(raw_user)
     if raw.isdigit():
         return f"Movie Twin {raw}"
@@ -211,6 +230,7 @@ def display_name(raw_user):
 
 
 def unique_match_badges(row):
+    """Generate badge labels for user matches"""
     badges = []
     if row.get("same_region", 0) == 1:
         badges.append("Same area")
@@ -222,6 +242,7 @@ def unique_match_badges(row):
 
 
 def normalize_cluster_value(value):
+    """Convert cluster value to int if possible"""
     if pd.isna(value):
         return None
     s = str(value)
@@ -234,6 +255,7 @@ def normalize_cluster_value(value):
 
 
 def serialize_user_row(user_row):
+    """Prepare user row for API response"""
     return {
         "user": str(user_row.get("user", "")),
         "cluster": normalize_cluster_value(user_row.get("cluster")),
@@ -252,22 +274,23 @@ def serialize_user_row(user_row):
 
 
 def serialize_matches(user_matches):
+    """Prepare user match data for API response."""
     results = []
-
+    # Iterate over each row of the matches DataFrame
     for _, row in user_matches.iterrows():
         results.append(
             {
-                "match_user": str(row.get("match_user", "")),
-                "display_name": display_name(row.get("match_user", "")),
-                "similarity": None if pd.isna(row.get("similarity")) else float(row.get("similarity")),
-                "same_region": int(row.get("same_region", 0)),
-                "same_cluster": int(row.get("same_cluster", 0)),
-                "same_fsa": int(row.get("same_fsa", 0)),
+                "match_user": str(row.get("match_user", "")), # matched user's ID
+                "display_name": display_name(row.get("match_user", "")), # formatted display name
+                "similarity": None if pd.isna(row.get("similarity")) else float(row.get("similarity")), # similarity score
+                "same_region": int(row.get("same_region", 0)), # region match flag
+                "same_cluster": int(row.get("same_cluster", 0)), # cluster match flag
+                "same_fsa": int(row.get("same_fsa", 0)), # FSA match flag
                 "match_region": None if pd.isna(row.get("match_region")) else str(row.get("match_region")),
                 "match_fsa": None if pd.isna(row.get("match_fsa")) else str(row.get("match_fsa")),
                 "user_cluster": normalize_cluster_value(row.get("user_cluster")),
                 "match_cluster": normalize_cluster_value(row.get("match_cluster")),
-                "badges": unique_match_badges(row),
+                "badges": unique_match_badges(row), # visual badges based on match characteristics
             }
         )
 
@@ -275,43 +298,45 @@ def serialize_matches(user_matches):
 
 
 def build_cluster_cards(dashboard: pd.DataFrame):
+    """Generate summary cards for each cluster showing persona and counts."""
     working = dashboard.copy()
     working["cluster_norm"] = working["cluster"].apply(normalize_cluster_value)
-
+    # Count number of users per cluster
     counts = (
         working.groupby("cluster_norm", dropna=False)["user"]
         .nunique()
         .reset_index(name="user_count")
     )
-
+    # Count number of users per cluster
     representative = (
         working.sort_values("user")
         .drop_duplicates(subset=["cluster_norm"])
         .copy()
     )
-
+    # Merge counts into representative rows
     merged = representative.merge(counts, on="cluster_norm", how="left")
 
     cards = []
     for _, row in merged.iterrows():
         cluster_value = row.get("cluster_norm")
         if cluster_value is None:
-            continue
+            continue # skip invalid clusters
 
         cards.append(
             {
                 "cluster": cluster_value,
-                "persona_name": str(row.get("persona_name", "Movie Explorer")),
-                "top_genres": split_pipe_text(row.get("top_genres", "")),
-                "example_movies": split_pipe_text(row.get("example_movies", "")),
-                "user_count": int(row.get("user_count", 0)),
+                "persona_name": str(row.get("persona_name", "Movie Explorer")), # default persona name
+                "top_genres": split_pipe_text(row.get("top_genres", "")), # default persona name
+                "example_movies": split_pipe_text(row.get("example_movies", "")), # example movies
+                "user_count": int(row.get("user_count", 0)), # number of users in this cluster
             }
         )
-
+    # Sort cards descending by user count
     cards.sort(key=lambda x: x["user_count"], reverse=True)
     return cards
 
 def safe_text(value) -> str:
+    """Convert any input into a clean string, treating NaN/None as empty."""
     if value is None:
         return ""
     if isinstance(value, float) and pd.isna(value):
@@ -321,6 +346,7 @@ def safe_text(value) -> str:
 
 
 def normalize_why_this_works(value):
+    """Normalize 'why this works' points into a clean list of strings."""
     if isinstance(value, list):
         return [safe_text(v) for v in value if safe_text(v)]
 
@@ -349,6 +375,11 @@ def normalize_why_this_works(value):
 
 @app.get("/api/events/{fsa}")
 def get_event_suggestion(fsa: str):
+    """
+    Return event suggestions for a given FSA code.
+    - Reads event suggestions from parquet cache.
+    - Sorts by business_score and generates narrative.
+    """
     if not EVENT_SUGGESTIONS_PATH.exists():
         raise HTTPException(
             status_code=500,
@@ -358,7 +389,7 @@ def get_event_suggestion(fsa: str):
     event_suggestions = pd.read_parquet(EVENT_SUGGESTIONS_PATH)
 
     fsa_input = str(fsa).strip().upper()
-
+    # Filter events for this FSA
     fsa_results = event_suggestions[
         event_suggestions["fsa"].astype(str).str.upper() == fsa_input
     ].copy()
@@ -368,21 +399,21 @@ def get_event_suggestion(fsa: str):
             status_code=404,
             detail="No event suggestions found for that FSA."
         )
-
+    # Sort events by business score (descending)
     fsa_results = fsa_results.sort_values(
         by="business_score",
         ascending=False
     ).reset_index(drop=True)
-
+    # Generate or fetch narrative for the FSA
     narrative = get_or_create_event_narrative(fsa_input, fsa_results)
-
+    # Extract narrative components
     event_title = safe_text(narrative.get("event_title"))
     event_pitch = safe_text(narrative.get("event_pitch"))
     persona_name = safe_text(narrative.get("persona_name"))
     event_theme = safe_text(narrative.get("event_theme"))
     primary_movie = safe_text(narrative.get("primary_movie"))
     why_points = normalize_why_this_works(narrative.get("why_this_works"))
-
+    # Fallback parsing if LLM response is missing
     if not why_points:
         raw_response = narrative.get("raw_response", "")
         if raw_response:
@@ -396,7 +427,7 @@ def get_event_suggestion(fsa: str):
     local_share_pct = round(float(top_row["cluster_share_in_fsa"]) * 100, 1)
     top_genres = safe_text(top_row.get("top_genres"))
     genre_chips = [g.strip() for g in top_genres.split("|") if g.strip()] if top_genres else []
-
+    # Keep only relevant columns for ranked suggestions
     ranked_cols = [
         "fsa",
         "cluster",
@@ -410,7 +441,7 @@ def get_event_suggestion(fsa: str):
     ranked_cols = [c for c in ranked_cols if c in fsa_results.columns]
 
     ranked_rows = fsa_results[ranked_cols].to_dict(orient="records")
-
+    # Construct API response
     response = {
         "fsa": fsa_input,
         "hero": {
@@ -439,11 +470,22 @@ def get_event_suggestion(fsa: str):
 
 @app.get("/api/health")
 def health():
+    """Simple health check endpoint."""
     return {"status": "ok"}
 
 
 @app.get("/api/user/{username}")
 def get_user(username: str):
+    """
+    Return detailed user profile including:
+    - Dashboard stats
+    - Matches
+    - Clusters
+    - Era bounds
+    - Persona radar
+    - Narrative and fallback flavor text
+    """
+    # Ensure required cache files exist
     if not USER_DASHBOARD_PATH.exists():
         raise HTTPException(
             status_code=500,
@@ -455,11 +497,11 @@ def get_user(username: str):
             status_code=500,
             detail="user_matches.parquet not found. Run the pipeline through step 06 first.",
         )
-
+    # Load user dashboard and matches
     dashboard = pd.read_parquet(USER_DASHBOARD_PATH)
     matches = pd.read_parquet(USER_MATCHES_PATH)
 
-
+    # Filter for this user
     user_row_df = dashboard[
         dashboard["user"].astype(str).str.lower() == str(username).lower()
     ].copy()
@@ -468,7 +510,7 @@ def get_user(username: str):
         raise HTTPException(status_code=404, detail="No user found with that username.")
 
     user_row = user_row_df.iloc[0]
-
+    # Load optional profile info
     profiles = pd.read_parquet(USER_PROFILES_PATH)
 
     profile_row_df = profiles[
@@ -476,17 +518,18 @@ def get_user(username: str):
     ].copy()
 
     profile_row = profile_row_df.iloc[0] if not profile_row_df.empty else user_row
-
+    # Filter matches for this user
     user_matches = matches[
         matches["user"].astype(str).str.lower() == str(username).lower()
     ].copy()
 
     if not user_matches.empty:
+        # Keep top 5 matches sorted by similarity
         user_matches = user_matches.sort_values(
             by=["same_region", "same_cluster", "similarity"],
             ascending=[False, False, False],
         ).head(5)
-
+    # Generate or fallback narrative
     try:
         narrative, newly_generated = get_or_create_narrative(user_row, user_matches)
         hero_title = narrative.get("taste_headline", str(user_row.get("persona_name", "Movie Explorer"))) or str(
@@ -496,13 +539,14 @@ def get_user(username: str):
         people_story = narrative.get("people_story", "").strip() or "These are the users whose taste aligns most closely with yours."
         narrative_fallback_used = False
     except Exception:
+        # Fallback if narrative generation fails
         hero_title = str(user_row.get("persona_name", "Movie Explorer"))
         taste_story = fallback_flavor_text(user_row)
         people_story = "These are the users whose taste aligns most closely with yours."
         newly_generated = False
         narrative_fallback_used = True
 
-
+    # Build final API response
     response = {
         "user": serialize_user_row(user_row),
         "hero_title": hero_title,

@@ -8,12 +8,17 @@ PlotTwins aims to reverse this trend by:
 
 > Grouping users with similar movie tastes and enabling shared, in-theatre experiences.
 
-Using large-scale Letterboxd-style data (~10M+ ratings), we build a data pipeline + user profiling system that:
+Using large-scale Letterboxd-style data (~10M+ ratings), we built a data pipeline + user profiling system that:
 
 * Identifies users with similar preferences
 * Groups them into meaningful communities
 * Enables event-based recommendations (e.g., themed screenings)
+* Generates human-readable narratives describing user and cluster taste profiles
 * Reintroduces movie watching as a social activity
+
+**Try it live:**  
+- [User Dashboard](https://plot-twins.vercel.app/)  
+- [Business Insights Layer](https://plot-twins.vercel.app/business)
 
 ---
 
@@ -39,10 +44,13 @@ chmod +x run_pipeline.sh
 
 ### What happens:
 
+
 * Creates virtual environment
 * Installs dependencies
 * Runs full pipeline
 * Caches intermediate results
+* Builds user-level taste profiles and clusters
+* Generates narratives for user and cluster personas
 
 ---
 
