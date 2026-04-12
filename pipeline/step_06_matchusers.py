@@ -39,6 +39,7 @@ def main():
     users_df = base_info.merge(cluster_info, on="user", how="left")
 
     # Similarity matrix
+    # Cosine similarity compares users in latent (PCA) feature space
     X = feature_matrix_pca[pca_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
     sim_matrix = cosine_similarity(X.values)
 
@@ -65,7 +66,7 @@ def main():
         for _, cand in candidates.iterrows():
             j = user_to_idx[cand["user"]]
             score = float(sim_matrix[i, j])
-
+            # Binary indicators for matching attributes (used for ranking)
             same_region = int(
                 pd.notna(current.get("region")) and
                 pd.notna(cand.get("region")) and
@@ -111,7 +112,7 @@ def main():
         ).head(TOP_N)
 
         rows.append(match_df)
-
+    # Combine all user match results into a single DataFrame
     user_matches = pd.concat(rows, ignore_index=True)
     user_matches.to_parquet(USER_MATCHES_OUT, index=False)
 

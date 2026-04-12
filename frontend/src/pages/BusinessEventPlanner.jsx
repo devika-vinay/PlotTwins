@@ -39,6 +39,7 @@ const genreIconMap = {
 };
 
 function GenreIcons({ genres = [] }) {
+  // Display a row of genre icons for the given genres
   return (
     <div className="genre-icon-row">
       {genres.map((g) => (
@@ -53,7 +54,7 @@ function GenreIcons({ genres = [] }) {
 
 function TechnicalDetails({ data }) {
   const [open, setOpen] = useState(false);
-
+  // Collapsible panel showing raw JSON and underlying ranked suggestions
   return (
     <div className="technical-wrapper">
       <button className="expander-btn" onClick={() => setOpen((prev) => !prev)}>
@@ -100,6 +101,7 @@ function TechnicalDetails({ data }) {
 }
 
 function WhyThisWorks({ points }) {
+  // Display rationale points for the suggested event, or fallback text
   if (!points || points.length === 0) {
     return (
       <div className="why-list">
@@ -125,7 +127,7 @@ function WhyThisWorks({ points }) {
 
 function normalizeThemeKey(value = "") {
   const text = String(value).toLowerCase();
-
+  // Map text from the event theme or persona name to a CSS class for hero styling
   if (text.includes("horror") || text.includes("spooky") || text.includes("halloween")) return "theme-horror";
   if (text.includes("spring")) return "theme-spring";
   if (text.includes("summer")) return "theme-summer";
@@ -146,7 +148,7 @@ export default function BusinessEventPlanner() {
 
   async function handleSearch(e) {
     e.preventDefault();
-
+    // Normalize FSA input
     const trimmed = fsaInput.trim().toUpperCase();
     if (!trimmed) return;
 
@@ -164,7 +166,7 @@ export default function BusinessEventPlanner() {
       setLoading(false);
     }
   }
-
+  // Determine hero banner theme based on event_theme or persona_name
   const heroThemeClass = useMemo(() => {
     return normalizeThemeKey(data?.metrics?.event_theme || data?.metrics?.persona_name || "");
   }, [data]);
@@ -201,6 +203,7 @@ export default function BusinessEventPlanner() {
 
         {data && (
           <>
+            {/* Hero section showing recommended event */}
             <div className={`hero planner-hero ${heroThemeClass}`}>
               <div className="hero-overlay" />
               <div className="hero-content">
@@ -209,7 +212,7 @@ export default function BusinessEventPlanner() {
                 <div className="hero-sub">{data.hero.event_pitch}</div>
               </div>
             </div>
-
+            {/* Key metrics cards for the event */}
             <div className="metric-grid">
               <div className="metric-card">
                 <div className="metric-label">Target audience</div>
@@ -255,7 +258,7 @@ export default function BusinessEventPlanner() {
                 </div>
               </div>
             </div>
-
+            {/* Raw technical info panel */}
             <TechnicalDetails data={data.technical_details} />
           </>
         )}

@@ -27,7 +27,7 @@ def main():
     # Filter active users
     # ----------------------------
     min_reviews = 100
-
+    # Keep only users with sufficient interaction history (reduces noise / sparsity)
     reviews_per_user = reviews.groupby("user").size()
     reviews_per_user = reviews_per_user[reviews_per_user >= min_reviews]
 
@@ -48,36 +48,38 @@ def main():
     # ----------------------------
     # Genre Feature Engineering
     # ----------------------------
+    # Explode to create one row per (user, genre) interaction
     g = reviews[["user", "genres_list", "rating_centered"]].explode("genres_list")
     g = g.dropna(subset=["genres_list"])
     g["genres_list"] = g["genres_list"].astype(str)
-
+    # Average preference per genre per user
     genre_mean = (
         g.groupby(["user", "genres_list"])["rating_centered"]
         .mean()
         .unstack(fill_value=0)
     )
     genre_mean = genre_mean.add_prefix("genre_mean_")
-
+    # Frequency-based genre distribution
     genre_count = (
         g.groupby(["user", "genres_list"])
         .size()
         .unstack(fill_value=0)
     )
-
+    # Normalize counts → proportions (user preference distribution)
     genre_share = genre_count.div(genre_count.sum(axis=1), axis=0)
     genre_share = genre_share.add_prefix("genre_share_")
 
     # ----------------------------
     # Popularity Preference
     # ----------------------------
+    # Bucket movies into popularity tiers using quantiles
     reviews["popularity_bucket"] = pd.qcut(
         reviews["vote_count"],
         3,
         labels=["low", "mid", "high"],
         duplicates="drop"
     )
-
+    # Convert counts → proportions per user
     pop_pref = (
         reviews.groupby(["user", "popularity_bucket"])
         .size()
@@ -97,6 +99,7 @@ def main():
     # ----------------------------
     # Temporal Preference
     # ----------------------------
+    # Convert years into decades for coarser preference patterns
     reviews["decade"] = (reviews["year_released"] // 10) * 10
 
     era_pref = (
@@ -113,6 +116,7 @@ def main():
     # ----------------------------
     # Collaborative Embedding (SVD)
     # ----------------------------
+    # Create user-item matrix (implicit collaborative filtering setup)
     user_movie = reviews.pivot_table(
         index="user",
         columns="title_norm",
@@ -126,7 +130,7 @@ def main():
         raise ValueError(
             "[04_feature_matrix] Not enough users/movies after filtering to run TruncatedSVD."
         )
-
+    # Reduce high-dimensional user-item space into latent factors
     svd = TruncatedSVD(n_components=max_svd_components, random_state=42)
     svd_features = svd.fit_transform(user_movie)
 
@@ -185,6 +189,7 @@ def main():
     # ----------------------------
     # Noise Reduction + PCA
     # ----------------------------
+    # Remove near-constant features (low information)
     selector = VarianceThreshold(threshold=0.01)
     X_filtered = selector.fit_transform(X_scaled)
 
@@ -198,7 +203,7 @@ def main():
         raise ValueError(
             "[04_feature_matrix] Not enough dimensions remaining after variance filtering to run PCA."
         )
-
+    # Further compress features into orthogonal components (dimensionality reduction)
     pca = PCA(n_components=max_pca_components, random_state=42)
     X_pca = pca.fit_transform(X_filtered)
 

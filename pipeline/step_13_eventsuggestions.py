@@ -3,17 +3,17 @@ from datetime import datetime
 
 from pipeline.step_00_config import CACHE_DIR
 
+# ── Input/Output Paths ──────────────────────────────────────────────
+CLUSTER_ASSIGNMENTS_IN = CACHE_DIR / "cluster_assignments.parquet" # user → cluster assignments
+CLUSTER_PERSONAS_IN = CACHE_DIR / "cluster_personas.parquet" # user → cluster assignments
+CLUSTER_MOVIE_KB_IN = CACHE_DIR / "cluster_movie_kb.parquet" # cluster-level movie knowledge base
 
-CLUSTER_ASSIGNMENTS_IN = CACHE_DIR / "cluster_assignments.parquet"
-CLUSTER_PERSONAS_IN = CACHE_DIR / "cluster_personas.parquet"
-CLUSTER_MOVIE_KB_IN = CACHE_DIR / "cluster_movie_kb.parquet"
+EVENT_SUGGESTIONS_OUT = CACHE_DIR / "event_suggestions.parquet" # cluster-level movie knowledge base
 
-EVENT_SUGGESTIONS_OUT = CACHE_DIR / "event_suggestions.parquet"
-
-
+# ── Season & Date Utilities ─────────────────────────────────────────
 def get_current_season(dt: datetime) -> str:
     month = dt.month
-
+    """Return the current season (winter/spring/summer/fall) based on month"""
     if month in [12, 1, 2]:
         return "winter"
     if month in [3, 4, 5]:
@@ -21,20 +21,25 @@ def get_current_season(dt: datetime) -> str:
     if month in [6, 7, 8]:
         return "summer"
     return "fall"
-
+# ── FSA Cluster Demand ───────────────────────────────────────────────
 def build_fsa_cluster_demand(cluster_assignments: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute cluster distribution within each FSA (Forward Sortation Area)
+    Returns per-FSA per-cluster counts and share of total FSA users
+    """
+    # Count users per FSA + cluster
     fsa_cluster_counts = (
         cluster_assignments
         .groupby(["fsa", "cluster"], as_index=False)
         .agg(n_users=("user", "count"))
     )
-
+    # Total users per FSA
     fsa_totals = (
         cluster_assignments
         .groupby("fsa", as_index=False)
         .agg(total_users_in_fsa=("user", "count"))
     )
-
+    # Merge counts with totals
     fsa_cluster_demand = fsa_cluster_counts.merge(
         fsa_totals,
         on="fsa",
@@ -56,6 +61,9 @@ def attach_cluster_personas(
     fsa_cluster_demand: pd.DataFrame,
     cluster_personas: pd.DataFrame
 ) -> pd.DataFrame:
+    """
+    Attach persona metadata (name, top genres) to each FSA-cluster demand row
+    """
     persona_cols = [
         "cluster",
         "persona_name",
@@ -69,11 +77,16 @@ def attach_cluster_personas(
     )
 
     return enriched
-
+# ── Top Movies by Cluster ───────────────────────────────────────────
 def build_top_movies_by_cluster(
+        
     cluster_movie_kb: pd.DataFrame,
     top_n: int = 10
 ) -> pd.DataFrame:
+    """
+    For each cluster, return top N representative movies
+    based on representative_score (descending)
+    """
     movie_cols = [
         "cluster",
         "display_title",
@@ -94,8 +107,13 @@ def build_top_movies_by_cluster(
     )
 
     return top_movies
-
+# ── Seasonal Event Themes ───────────────────────────────────────────
 def get_seasonal_event_themes(dt: datetime) -> list[dict]:
+    """
+    Return a list of event themes for the current date.
+    Month-specific overrides (e.g., Halloween, December holidays) take precedence.
+    Otherwise, default to seasonal themes.
+    """
     month = dt.month
 
     # Month-specific overrides first
@@ -146,6 +164,9 @@ def get_seasonal_event_themes(dt: datetime) -> list[dict]:
 
 
 def theme_matches_cluster(theme_key: str, top_genres_text: str) -> bool:
+    """
+    Determine if an event theme matches a cluster's top genres
+    """
     genres_text = str(top_genres_text).lower()
 
     theme_keywords = {
@@ -171,12 +192,16 @@ def theme_matches_cluster(theme_key: str, top_genres_text: str) -> bool:
 
     keywords = theme_keywords.get(theme_key, [])
     return any(keyword in genres_text for keyword in keywords)
-
+# ── Event Suggestion Construction ─────────────────────────────────────
 def build_event_suggestion_rows(
     enriched_demand: pd.DataFrame,
     top_movies_by_cluster: pd.DataFrame,
     top_n_movies: int = 3
 ) -> pd.DataFrame:
+    """
+    For each FSA + cluster combination with matching seasonal themes,
+    assign top N representative movies and expand rows by theme
+    """
     eligible = enriched_demand[
         enriched_demand["season_theme_matches"].apply(lambda x: isinstance(x, list) and len(x) > 0)
     ].copy()
@@ -215,11 +240,15 @@ def build_event_suggestion_rows(
     ].reset_index(drop=True)
 
     return merged
-
+# ── Ranking and Deduplication ───────────────────────────────────────
 def rank_event_suggestions(
     event_suggestion_rows: pd.DataFrame,
     top_k_per_fsa: int = 5
 ) -> pd.DataFrame:
+    """
+    Score suggestions using cluster share, representative score, and popularity bonus.
+    Keep only top K per FSA.
+    """
     ranked = event_suggestion_rows.copy()
 
     popularity_bonus_map = {
@@ -266,6 +295,9 @@ def deduplicate_event_suggestions(
     ranked_event_suggestions: pd.DataFrame,
     top_k_per_fsa: int = 5
 ) -> pd.DataFrame:
+    """
+    Remove duplicate movie titles per FSA, keeping the highest-scoring instance
+    """
     deduped = ranked_event_suggestions.copy()
 
     deduped = deduped.sort_values(
@@ -283,8 +315,11 @@ def deduplicate_event_suggestions(
     deduped = deduped[deduped["final_rank_within_fsa"] <= top_k_per_fsa].copy()
 
     return deduped
-
+# ── Business Explanation ───────────────────────────────────────────
 def build_business_explanation(row) -> str:
+    """
+    Human-readable explanation of why a movie/event was suggested for this FSA
+    """
     cluster_share_pct = round(float(row["cluster_share_in_fsa"]) * 100, 1)
 
     return (
@@ -293,8 +328,9 @@ def build_business_explanation(row) -> str:
         f"the event theme '{row['event_theme']}' matches this cluster's taste profile, "
         f"and '{row['display_title']}' is a strong representative movie for that audience."
     )
-
+# ── MAIN ────────────────────────────────────────────────────────────
 def main():
+    # Skip if cached
     if EVENT_SUGGESTIONS_OUT.exists():
         print("[13_event_suggestions] Cache exists. Skipping event suggestion build.")
         return
@@ -313,7 +349,7 @@ def main():
         raise FileNotFoundError(
             "[13_event_suggestions] Missing input: cluster_movie_kb.parquet"
         )
-
+    # Load inputs
     cluster_assignments = pd.read_parquet(CLUSTER_ASSIGNMENTS_IN)
     cluster_personas = pd.read_parquet(CLUSTER_PERSONAS_IN)
     cluster_movie_kb = pd.read_parquet(CLUSTER_MOVIE_KB_IN)
@@ -323,9 +359,9 @@ def main():
     print("[13_event_suggestions] Loaded cluster_assignments:", cluster_assignments.shape)
     print("[13_event_suggestions] Loaded cluster_personas:", cluster_personas.shape)
     print("[13_event_suggestions] Loaded cluster_movie_kb:", cluster_movie_kb.shape)
-
+    # Build FSA-level demand
     fsa_cluster_demand = build_fsa_cluster_demand(cluster_assignments)
-
+    # Match seasonal themes to cluster genres
     enriched_demand = attach_cluster_personas(
         fsa_cluster_demand,
         cluster_personas
@@ -346,13 +382,13 @@ def main():
         ],
         axis=1
     )
-
+    # Construct event suggestions
     event_suggestion_rows = build_event_suggestion_rows(
         enriched_demand=enriched_demand,
         top_movies_by_cluster=top_movies_by_cluster,
         top_n_movies=3
     )
-
+    # Rank and deduplicate
     ranked_event_suggestions = rank_event_suggestions(
         event_suggestion_rows,
         top_k_per_fsa=5
@@ -362,7 +398,7 @@ def main():
         ranked_event_suggestions,
         top_k_per_fsa=5
     )
-
+    # Add business explanation
     final_event_suggestions["business_explanation"] = final_event_suggestions.apply(
         build_business_explanation,
         axis=1
