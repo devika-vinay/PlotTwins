@@ -399,7 +399,7 @@ function DashboardView({
           type="text"
           value={usernameInput}
           onChange={(e) => setUsernameInput(e.target.value)}
-          placeholder="Search by username or user id"
+          placeholder="Enter any user id from 0 to 6518"
         />
         <button className="search-button" type="submit" disabled={loading}>
           {loading ? "Loading..." : "Search"}
